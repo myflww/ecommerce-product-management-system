@@ -1,0 +1,12 @@
+fastapi==0.162.5
+uvicorn==0.54.0
+python-multipart==0.0.33
+Pillow==13.0.0
+numpy==2.5.4
+opencv-python-headless==5.0.0.93
+httpx==0.28.1
+cryptography==50.0.2
+onnxruntime==1.31.1
+pypdf==7.0.1
+playwright==1.65.1
+pywebview==6.2.1; sys_platform == 'win32'

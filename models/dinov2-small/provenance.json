@@ -1,0 +1,14 @@
+{
+  "model": "facebook/dinov2-small",
+  "architecture": "DINOv2 ViT-S/14",
+  "license": "Apache-2.0",
+  "onnx_publisher": "onnx-community/dinov2-small-ONNX",
+  "revision": "08c606e3123472a388efa59181b677d428f69bbd",
+  "source_path": "onnx/model.onnx",
+  "sha256": "6266c3cd72db6953cecdcbfeab9422a9f783d96f1a4e296ba70ffbac43b54a18",
+  "bytes": 88513997,
+  "embedding_dimension": 384,
+  "runtime": "ONNX Runtime CPU",
+  "preprocessing": "whole frame and central 70%-side view; each shortest edge 256 bicubic, center crop 224, ImageNet mean/std; equal mean normalized CLS vectors",
+  "source_url": "https://huggingface.co/onnx-community/dinov2-small-ONNX/resolve/08c606e3123472a388efa59181b677d428f69bbd/onnx/model.onnx"
+}

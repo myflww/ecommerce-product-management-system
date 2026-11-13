@@ -1,0 +1,406 @@
+{
+  "collected_on": "2026-11-13",
+  "packages": [
+    {
+      "name": "altgraph",
+      "version": "0.17.5",
+      "license": "MIT",
+      "license_files": [
+        "altgraph/altgraph-0.17.5.dist-info/LICENSE"
+      ]
+    },
+    {
+      "name": "annotated-doc",
+      "version": "0.0.6",
+      "license": "MIT",
+      "license_files": [
+        "annotated-doc/annotated_doc-0.0.6.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "annotated-types",
+      "version": "0.8.0",
+      "license": "MIT",
+      "license_files": [
+        "annotated-types/annotated_types-0.8.0.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "anyio",
+      "version": "4.16.0",
+      "license": "MIT",
+      "license_files": [
+        "anyio/anyio-4.16.0.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "bottle",
+      "version": "0.13.4",
+      "license": "MIT",
+      "license_files": [
+        "bottle/bottle-0.13.4.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "certifi",
+      "version": "2026.10.23",
+      "license": "MPL-2.0",
+      "license_files": [
+        "certifi/certifi-2026.10.23.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "cffi",
+      "version": "2.1.1",
+      "license": "MIT-0",
+      "license_files": [
+        "cffi/cffi-2.1.1.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "click",
+      "version": "8.5.1",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "click/click-8.5.1.dist-info/licenses/LICENSE.txt"
+      ]
+    },
+    {
+      "name": "clr_loader",
+      "version": "0.3.1",
+      "license": "MIT",
+      "license_files": [
+        "clr-loader/clr_loader-0.3.1.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "cryptography",
+      "version": "50.0.2",
+      "license": "Apache-2.0 OR BSD-3-Clause",
+      "license_files": [
+        "cryptography/cryptography-50.0.2.dist-info/licenses/LICENSE",
+        "cryptography/cryptography-50.0.2.dist-info/licenses/LICENSE.APACHE",
+        "cryptography/cryptography-50.0.2.dist-info/licenses/LICENSE.BSD"
+      ]
+    },
+    {
+      "name": "fastapi",
+      "version": "0.162.5",
+      "license": "MIT",
+      "license_files": [
+        "fastapi/fastapi-0.162.5.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "flatbuffers",
+      "version": "25.12.19",
+      "license": "Apache 2.0",
+      "license_files": [
+        "flatbuffers/LICENSE.txt",
+        "flatbuffers/NOTICE.txt"
+      ],
+      "license_source": "https://www.apache.org/licenses/LICENSE-2.0"
+    },
+    {
+      "name": "greenlet",
+      "version": "3.5.6",
+      "license": "MIT AND PSF-2.0",
+      "license_files": [
+        "greenlet/greenlet-3.5.6.dist-info/licenses/LICENSE",
+        "greenlet/greenlet-3.5.6.dist-info/licenses/LICENSE.PSF"
+      ]
+    },
+    {
+      "name": "h11",
+      "version": "0.16.0",
+      "license": "MIT",
+      "license_files": [
+        "h11/h11-0.16.0.dist-info/licenses/LICENSE.txt"
+      ]
+    },
+    {
+      "name": "httpcore",
+      "version": "1.0.9",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "httpcore/httpcore-1.0.9.dist-info/licenses/LICENSE.md"
+      ]
+    },
+    {
+      "name": "httpx",
+      "version": "0.28.1",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "httpx/httpx-0.28.1.dist-info/licenses/LICENSE.md"
+      ]
+    },
+    {
+      "name": "idna",
+      "version": "3.20",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "idna/idna-3.20.dist-info/licenses/LICENSE.md"
+      ]
+    },
+    {
+      "name": "numpy",
+      "version": "2.5.4",
+      "license": "BSD-3-Clause AND 0BSD AND MIT AND Zlib AND CC0-1.0",
+      "license_files": [
+        "numpy/numpy-2.5.4.dist-info/licenses/LICENSE.txt",
+        "numpy/numpy-2.5.4.dist-info/licenses/numpy/_core/include/numpy/libdivide/LICENSE.txt",
+        "numpy/numpy-2.5.4.dist-info/licenses/numpy/_core/src/common/pythoncapi-compat/COPYING",
+        "numpy/numpy-2.5.4.dist-info/licenses/numpy/_core/src/highway/LICENSE",
+        "numpy/numpy-2.5.4.dist-info/licenses/numpy/_core/src/npysort/x86-simd-sort/LICENSE.md",
+        "numpy/numpy-2.5.4.dist-info/licenses/numpy/_core/src/umath/svml/LICENSE",
+        "numpy/numpy-2.5.4.dist-info/licenses/numpy/fft/pocketfft/LICENSE.md",
+        "numpy/numpy-2.5.4.dist-info/licenses/numpy/linalg/lapack_lite/LICENSE.txt",
+        "numpy/numpy-2.5.4.dist-info/licenses/numpy/ma/LICENSE",
+        "numpy/numpy-2.5.4.dist-info/licenses/numpy/random/LICENSE.md",
+        "numpy/numpy-2.5.4.dist-info/licenses/numpy/random/src/distributions/LICENSE.md",
+        "numpy/numpy-2.5.4.dist-info/licenses/numpy/random/src/mt19937/LICENSE.md",
+        "numpy/numpy-2.5.4.dist-info/licenses/numpy/random/src/pcg64/LICENSE.md",
+        "numpy/numpy-2.5.4.dist-info/licenses/numpy/random/src/philox/LICENSE.md",
+        "numpy/numpy-2.5.4.dist-info/licenses/numpy/random/src/sfc64/LICENSE.md",
+        "numpy/numpy-2.5.4.dist-info/licenses/numpy/random/src/splitmix64/LICENSE.md",
+        "numpy/numpy/_core/include/numpy/random/LICENSE.txt",
+        "numpy/numpy/ma/LICENSE",
+        "numpy/numpy/random/LICENSE.md"
+      ]
+    },
+    {
+      "name": "onnxruntime",
+      "version": "1.31.1",
+      "license": "MIT License",
+      "license_files": [
+        "onnxruntime/onnxruntime/LICENSE",
+        "onnxruntime/onnxruntime/ThirdPartyNotices.txt"
+      ]
+    },
+    {
+      "name": "opencv-python-headless",
+      "version": "5.0.0.93",
+      "license": "Apache 2.0",
+      "license_files": [
+        "opencv-python-headless/cv2/LICENSE-3RD-PARTY.txt",
+        "opencv-python-headless/cv2/LICENSE.txt",
+        "opencv-python-headless/opencv_python_headless-5.0.0.93.dist-info/LICENSE-3RD-PARTY.txt",
+        "opencv-python-headless/opencv_python_headless-5.0.0.93.dist-info/LICENSE.txt"
+      ]
+    },
+    {
+      "name": "opentelemetry-api",
+      "version": "1.45.2",
+      "license": "Apache-2.0",
+      "license_files": [
+        "opentelemetry-api/opentelemetry_api-1.45.2.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "packaging",
+      "version": "26.3",
+      "license": "Apache-2.0 OR BSD-2-Clause",
+      "license_files": [
+        "packaging/packaging-26.3.dist-info/licenses/LICENSE",
+        "packaging/packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+        "packaging/packaging-26.3.dist-info/licenses/LICENSE.BSD"
+      ]
+    },
+    {
+      "name": "pefile",
+      "version": "2024.8.26",
+      "license": "MIT",
+      "license_files": [
+        "pefile/pefile-2024.8.26.dist-info/LICENSE"
+      ]
+    },
+    {
+      "name": "pillow",
+      "version": "13.0.0",
+      "license": "MIT-CMU",
+      "license_files": [
+        "pillow/pillow-13.0.0.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "playwright",
+      "version": "1.65.1",
+      "license": "Apache-2.0",
+      "license_files": [
+        "playwright/playwright-1.65.1.dist-info/licenses/LICENSE",
+        "playwright/playwright/driver/LICENSE",
+        "playwright/playwright/driver/package/LICENSE",
+        "playwright/playwright/driver/package/NOTICE",
+        "playwright/playwright/driver/package/ThirdPartyNotices.txt",
+        "playwright/playwright/driver/package/lib/serverRegistry.js.LICENSE",
+        "playwright/playwright/driver/package/lib/utilsBundle.js.LICENSE",
+        "playwright/playwright/driver/package/lib/webp_codec.LICENSE"
+      ]
+    },
+    {
+      "name": "protobuf",
+      "version": "7.36.2",
+      "license": "3-Clause BSD License",
+      "license_files": [
+        "protobuf/protobuf-7.36.2.dist-info/LICENSE"
+      ]
+    },
+    {
+      "name": "proxy_tools",
+      "version": "0.1.0",
+      "license": "MIT metadata; BSD source notice",
+      "license_files": [
+        "proxy-tools/UPSTREAM-NOTICE.txt",
+        "proxy-tools/WERKZEUG-BSD-LICENSE.txt",
+        "proxy-tools/MIT-REFERENCE.txt"
+      ]
+    },
+    {
+      "name": "pycparser",
+      "version": "3.12",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "pycparser/pycparser-3.12.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "pydantic",
+      "version": "2.14.3",
+      "license": "MIT",
+      "license_files": [
+        "pydantic/pydantic-2.14.3.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "pydantic_core",
+      "version": "2.50.4",
+      "license": "MIT",
+      "license_files": [
+        "pydantic-core/pydantic_core-2.50.4.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "pyinstaller",
+      "version": "6.22.3",
+      "license": "GPLv2-or-later with a special exception which allows to use PyInstaller to build and distribute non-free programs (including commercial ones)",
+      "license_files": [
+        "pyinstaller/pyinstaller-6.22.3.dist-info/licenses/COPYING.txt"
+      ]
+    },
+    {
+      "name": "pyinstaller-hooks-contrib",
+      "version": "2026.10",
+      "license": "",
+      "license_files": [
+        "pyinstaller-hooks-contrib/pyinstaller_hooks_contrib-2026.10.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "pypdf",
+      "version": "7.0.1",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "pypdf/pypdf-7.0.1.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "python-multipart",
+      "version": "0.0.33",
+      "license": "Apache-2.0",
+      "license_files": [
+        "python-multipart/python_multipart-0.0.33.dist-info/licenses/LICENSE.txt"
+      ]
+    },
+    {
+      "name": "pythonnet",
+      "version": "3.2.1",
+      "license": "MIT",
+      "license_files": [
+        "pythonnet/pythonnet-3.2.1.dist-info/licenses/AUTHORS.md",
+        "pythonnet/pythonnet-3.2.1.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "pywebview",
+      "version": "6.2.1",
+      "license": "BSD 3-Clause License",
+      "license_files": [
+        "pywebview/pywebview-6.2.1.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "pywin32-ctypes",
+      "version": "0.2.3",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "pywin32-ctypes/pywin32_ctypes-0.2.3.dist-info/LICENSE.txt"
+      ]
+    },
+    {
+      "name": "setuptools",
+      "version": "84.2.1",
+      "license": "MIT",
+      "license_files": [
+        "setuptools/setuptools-84.2.1.dist-info/licenses/LICENSE",
+        "setuptools/setuptools/_vendor/autocommand-2.2.2.dist-info/LICENSE",
+        "setuptools/setuptools/_vendor/backports.tarfile-1.2.0.dist-info/LICENSE",
+        "setuptools/setuptools/_vendor/importlib_metadata-8.7.1.dist-info/licenses/LICENSE",
+        "setuptools/setuptools/_vendor/jaraco.text-4.0.0.dist-info/LICENSE",
+        "setuptools/setuptools/_vendor/jaraco_context-6.1.0.dist-info/licenses/LICENSE",
+        "setuptools/setuptools/_vendor/jaraco_functools-4.4.0.dist-info/licenses/LICENSE",
+        "setuptools/setuptools/_vendor/more_itertools-10.8.0.dist-info/licenses/LICENSE",
+        "setuptools/setuptools/_vendor/packaging-26.3.dist-info/licenses/LICENSE",
+        "setuptools/setuptools/_vendor/packaging-26.3.dist-info/licenses/LICENSE.APACHE",
+        "setuptools/setuptools/_vendor/packaging-26.3.dist-info/licenses/LICENSE.BSD",
+        "setuptools/setuptools/_vendor/platformdirs-4.4.0.dist-info/licenses/LICENSE",
+        "setuptools/setuptools/_vendor/tomli-2.4.0.dist-info/licenses/LICENSE",
+        "setuptools/setuptools/_vendor/wheel-0.46.3.dist-info/licenses/LICENSE.txt",
+        "setuptools/setuptools/_vendor/zipp-3.23.0.dist-info/licenses/LICENSE",
+        "setuptools/setuptools/config/NOTICE",
+        "setuptools/setuptools/config/_validate_pyproject/NOTICE"
+      ]
+    },
+    {
+      "name": "starlette",
+      "version": "1.10.0",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "starlette/starlette-1.10.0.dist-info/licenses/LICENSE.md"
+      ]
+    },
+    {
+      "name": "typing_extensions",
+      "version": "4.16.0",
+      "license": "PSF-2.0",
+      "license_files": [
+        "typing-extensions/typing_extensions-4.16.0.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "typing-inspection",
+      "version": "0.4.5",
+      "license": "MIT",
+      "license_files": [
+        "typing-inspection/typing_inspection-0.4.5.dist-info/licenses/LICENSE"
+      ]
+    },
+    {
+      "name": "uvicorn",
+      "version": "0.54.0",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "uvicorn/uvicorn-0.54.0.dist-info/licenses/LICENSE.md"
+      ]
+    },
+    {
+      "name": "Microsoft.Web.WebView2 SDK",
+      "version": "1.0.3856.49",
+      "license": "BSD-3-Clause",
+      "license_files": [
+        "microsoft-webview2-sdk/LICENSE.txt",
+        "microsoft-webview2-sdk/NOTICE.txt"
+      ],
+      "license_source": "https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/1.0.3856.49/microsoft.web.webview2.1.0.3856.49.nupkg"
+    }
+  ]
+}

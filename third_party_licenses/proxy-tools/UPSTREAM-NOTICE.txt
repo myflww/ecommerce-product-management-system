@@ -1,0 +1,16 @@
+proxy_tools 0.1.0 upstream packaging notice
+
+Package metadata declares MIT. The distributed source declares BSD
+and says it was extracted from Werkzeug. Its sdist omits LICENSE.
+The source attribution is preserved below; accompanying license
+references do not replace or relicense upstream code.
+
+"""
+    proxy_tools.py
+    ~~~~~~~~~~~~~~~~~~~~~~~~
+
+    Proxy. Extracted from Werkzeug
+
+    :copyright: (c) 2013 by Armin Ronacher (adapted by Jonathan Tushman 2014).
+    :license: BSD, see LICENSE for more details.
+"""
