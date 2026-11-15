@@ -75,7 +75,7 @@ def setup(tmp_path, monkeypatch):
         product = response.json()
         listing = product['listings'][0]['id']
         client.put('/api/price-tracking/listings/' + listing, json={'enabled': True,
-            'source_url': 'https://www.temu.com/us-zh-Hans/sample-g-123456789012345.html', 'region': '美国站', 'variant_hint': '套装D'}).raise_for_status()
+            'source_url': 'https://www.temu.com/us-zh-Hans/sample-g-700000000000002.html', 'region': '美国站', 'variant_hint': '套装D'}).raise_for_status()
         yield client, app, product, listing, jobs
 
 
@@ -181,14 +181,20 @@ def test_lan_cannot_open_or_control_host_browser_even_with_forwarded_header(setu
 
 
 def test_product_edit_rights_rechecked_on_confirm(setup):
-    c, _, product, listing, _ = setup
-    job = begin(setup)
-    with backend._connection(write=True) as conn:
-        password = conn.execute('SELECT password_hash FROM users LIMIT 1').fetchone()[0]
-        conn.execute('INSERT INTO users VALUES(?,?,?,?,?)', ('another-user', '权限转移账户', password, 'operator', backend.now()))
-        conn.execute("UPDATE users SET role='operator'")
-        conn.execute("UPDATE products SET created_by='another-user',owner='another-user' WHERE id=?", (product['id'],))
-    assert confirmed(c, job).status_code == 403
+    owner, app, product, listing, jobs = setup
+    response = owner.post('/api/team', json={
+        'name': '采价管理员', 'password': 'browser-admin-test-only', 'role': 'admin'})
+    response.raise_for_status()
+    identity = response.json()['id']
+    with TestClient(app, client=('127.0.0.1', 30003)) as admin:
+        admin.post('/api/login', json={
+            'name': '采价管理员', 'password': 'browser-admin-test-only'}).raise_for_status()
+        job = begin((admin, app, product, listing, jobs))
+        member = next(item for item in owner.get('/api/team').json()['items'] if item['id'] == identity)
+        owner.patch('/api/team/' + identity, json={
+            'expected_revision': member['revision'],
+            'permissions': {'products.edit_own': False, 'products.edit_all': False}}).raise_for_status()
+        assert confirmed(admin, job).status_code == 403
     with backend._connection() as conn:
         assert conn.execute('SELECT COUNT(*) FROM price_history').fetchone()[0] == 0
 

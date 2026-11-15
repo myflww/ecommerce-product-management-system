@@ -95,6 +95,36 @@ def evidence(system, tag='company_evidence'):
     return json.loads(system.split('<'+tag+'>',1)[1].split('</'+tag+'>',1)[0])
 
 
+def test_explicit_graph_product_keeps_linked_latest_knowledge_ahead_of_generic_matches(assistant):
+    target=product(assistant, name='测试专用产品', notes='手工核对的最新业务备注')
+    linked=note(assistant, title='专用规范', content='旧的产品专用规则', product_ids=[target['id']])
+    assistant.client.patch('/api/knowledge/documents/'+linked['id'],json={
+        'content':'最新版产品专用规则','expected_revision':linked['revision']}).raise_for_status()
+    for n in range(6):
+        note(assistant,title=f'通用规范{n}',content='通用规范规则说明')
+    settings(assistant,share_library_context=True,share_knowledge_context=True)
+    result=chat(assistant,'请整理通用规范',mode='company',source_refs={
+        'product_ids':[target['id']],'document_ids':[]})
+    provided=evidence(assistant.state.calls[-1]['system'])
+    assert result['product_cards'][0]['id']==target['id']
+    assert provided['products'][0]['notes']=='手工核对的最新业务备注'
+    assert provided['knowledge'][0]['document_id']==linked['id']
+    assert provided['knowledge'][0]['revision']==2
+    assert '最新版产品专用规则' in provided['knowledge'][0]['excerpt']
+    assert '旧的产品专用规则' not in assistant.state.calls[-1]['system']
+
+
+def test_explicit_references_respect_individual_company_sharing_switches(assistant):
+    target=product(assistant)
+    linked=note(assistant,product_ids=[target['id']])
+    settings(assistant,share_library_context=False,share_knowledge_context=False)
+    result=chat(assistant,'整理所选资料',mode='company',source_refs={
+        'product_ids':[target['id']],'document_ids':[linked['id']]})
+    assert result['product_cards']==[] and result['sources']==[]
+    assert not result['context_shared'] and not result['knowledge_shared']
+    assert '<company_evidence>' not in assistant.state.calls[-1]['system']
+
+
 def test_found_company_product_has_local_photo_card_without_cloud_image_permission(assistant):
     target=product(assistant)
     product(assistant,name='黄铜金属烛台',category='烛台',specs='金属支架，无蜡烛')

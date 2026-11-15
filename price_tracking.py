@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, Body, Depends, HTTPException, Request
 
 import backend
+import permissions
 import price_capture
 import price_storage
 import exchange_rates
@@ -52,12 +53,12 @@ def public_settings():
 
 @router.get('/settings')
 def settings(request: Request):
-    return {**public_settings(), 'can_edit':backend._user(request)['role'] == 'admin'}
+    return {**public_settings(), 'can_edit':permissions.has(backend._user(request), 'settings.price')}
 
 
 @router.put('/settings')
 def update_settings(request: Request, payload: dict = Body(...)):
-    backend._admin(backend._user(request))
+    permissions.require(backend._user(request), 'settings.price')
     if payload.get('enabled') is True:
         raise HTTPException(400, '本版本仅保留手动采价，自动查询计划已停用。')
     price_storage.save_settings(payload, backend._user(request))
@@ -153,7 +154,7 @@ async def refresh_one(listing_id: str, user: dict | None = None):
         async with asyncio.timeout(145):
             result = await price_capture.fetch_and_extract(
                 target['source_url'], target['currency'], variant_hint=target.get('variant_hint',''),
-                region=target.get('region',''), ai_extractor=_ai_extract if config.get('allow_ai') else None, **sku_options)
+                region=target.get('region',''), ai_extractor=_ai_extract if config.get('allow_ai') and (user is None or permissions.has(user, 'ai.use')) else None, **sku_options)
         applied = price_storage.record_attempt(listing_id, result=result, expected_target=target)
         return {'ok':bool(applied), 'updated':bool(applied), 'message':'价格已更新' if applied else '记录配置已变化，本次旧结果未应用。'}
     except asyncio.CancelledError:
@@ -204,7 +205,7 @@ async def refresh_all(scheduled: bool = False, user: dict | None = None):
 
 @router.post('/refresh')
 async def refresh_prices(request: Request):
-    backend._admin(backend._user(request))
+    permissions.require(backend._user(request), 'products.edit_all')
     return await refresh_all(user=backend._user(request))
 
 

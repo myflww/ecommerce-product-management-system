@@ -71,7 +71,7 @@ def test_first_admin_is_atomic_and_library_is_private(client):
     response = client.post("/api/setup", json={"name": "管理员", "password": "short"})
     assert response.status_code == 400
     user = setup(client)
-    assert user["role"] == "admin"
+    assert user["role"] == "owner" and user["is_owner"]
     assert client.get("/api/bootstrap").json() == {"needs_setup": False}
     assert client.post("/api/setup", json={"name": "第二位", "password": "another-password"}).status_code == 409
     assert "httponly" in client.cookies.__repr__().lower() or backend.COOKIE_NAME in client.cookies

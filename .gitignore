@@ -17,6 +17,7 @@ COORDINATION.md
 desktop-config.json
 **/desktop-webview/
 **/browser-price-profiles/
+**/browser-store-profiles/
 *.db
 *.db-shm
 *.db-wal

@@ -14,14 +14,15 @@ from pathlib import Path, PurePosixPath
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = (ROOT / 'VERSION').read_text().strip()
 FILES = ('LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'README.en.md',
-         'VERSION', 'Install-Desktop.cmd', 'Uninstall-Desktop.cmd')
+         'VERSION', 'Install-Desktop.cmd', 'Uninstall-Desktop.cmd', 'PRICE_TRACKING.md',
+         'PRODUCT_CLASSIFICATION.md', 'ENTERPRISE_KNOWLEDGE.md', 'STORE_IMPORT.md')
 INSTALL_SCRIPTS = ('Install-Desktop.ps1', 'Uninstall-Desktop.ps1')
 MODEL_FILES = frozenset({'LICENSE.txt', 'README.md', 'model.onnx',
                          'preprocessor_config.json', 'provenance.json'})
 LICENSE_EXTRAS = frozenset({'manifest.json', 'python/LICENSE.txt', 'tcl/license.terms',
                             'tk/license.terms', 'dinov2-small/LICENSE.txt'})
 FORBIDDEN = {'data', 'qa-data', '.work', '.git', '.venv', '__pycache__',
-             'desktop-webview', 'browser-price-profiles', 'backups'}
+             'desktop-webview', 'browser-price-profiles', 'browser-store-profiles', 'backups'}
 PRIVATE_NAMES = {'desktop-config.json', 'ai-config.json', '.ai-vault-key'}
 
 
@@ -202,8 +203,8 @@ def _copy(source: Path, destination: Path) -> None:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--exe', type=Path, default=ROOT / 'dist' / 'windows' / 'Midoo.exe')
-    parser.add_argument('--output', type=Path, default=ROOT / 'dist' / 'release')
-    parser.add_argument('--package', type=Path, default=ROOT / 'dist' / 'windows-package')
+    parser.add_argument('--output', type=Path, default=ROOT / 'dist' / 'release' / VERSION)
+    parser.add_argument('--package', type=Path, default=ROOT / 'dist' / 'windows-package' / VERSION)
     parser.add_argument('--checksums-only', action='store_true')
     args = parser.parse_args()
     _ensure_directory(args.output)

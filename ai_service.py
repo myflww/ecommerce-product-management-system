@@ -25,6 +25,7 @@ import chat_attachments
 import chat_memory
 import knowledge_store
 import web_grounding
+import permissions
 
 router = APIRouter(prefix="/api/ai", dependencies=[Depends(backend.require_user)])
 _lock = threading.RLock()
@@ -127,8 +128,7 @@ def _decrypt(encrypted: str) -> str:
 
 def _admin(request: Request):
     user = backend.authenticate_request(request)
-    if not user or user["role"] != "admin":
-        raise HTTPException(403, "此操作仅管理员可用。")
+    permissions.require(user, "settings.ai")
     return user
 
 
@@ -157,7 +157,8 @@ def get_config(request: Request):
     user = backend.authenticate_request(request)
     with _lock:
         result = _public(_load())
-    if user and user["role"] != "admin":
+    result["can_manage"] = permissions.has(user, "settings.ai")
+    if not result["can_manage"]:
         for provider in result["providers"]:
             provider.pop("base_url", None)
     return result
@@ -394,7 +395,8 @@ def _source_references(history: list, current) -> dict:
             for identifier in ids:
                 if identifier not in result[name]:
                     result[name].append(identifier)
-    return {name: ids[-6:] for name, ids in result.items()}
+    return {**{name: ids[-6:] for name, ids in result.items()},
+            "_explicit": bool(current and any(current.values()))}
 
 
 def _company_evidence(message: str, history: list, references: dict, products_allowed: bool, knowledge_allowed: bool) -> dict:
@@ -408,7 +410,7 @@ def _company_evidence(message: str, history: list, references: dict, products_al
         query = message + " " + previous[:300]
     if products_allowed:
         products = knowledge_store.retrieve_products(query, limit=6)
-        if followup:
+        if followup or references.get("_explicit"):
             products = knowledge_store.get_products_by_ids(references["product_ids"]) + products
         seen = set()
         for product in products:
@@ -423,14 +425,21 @@ def _company_evidence(message: str, history: list, references: dict, products_al
         result["stats"] = {key: stats[key] for key in ("total_products", "pending_products", "listed_products", "workflow_counts") if key in stats}
         for number, product in enumerate(result["products"], 1):
             summary = {key: product.get(key) for key in ("id", "code", "name", "owner", "category", "status", "workflow_state", "workflow_states")}
-            summary.update(citation=f"P{number}", specs=str(product.get("specs", ""))[:900],
+            summary.update(citation=f"P{number}", specs=str(product.get("specs", ""))[:900], notes=str(product.get("notes", ""))[:800],
                            images_available=bool(product.get("images")),
                            listings=[{key: row.get(key, "") for key in ("platform", "store", "product_code", "product_number", "status", "price", "currency", "variant_hint", "region")} for row in product.get("listings", [])[:12]])
             result["context_products"].append(summary)
             result["sources"].append({"id": f"P{number}", "kind": "product", "product_id": product["id"], "title": product["code"] + " · " + product["name"], "excerpt": str(product.get("specs", ""))[:350]})
     if knowledge_allowed:
         items = knowledge_store.retrieve(query, limit=6)["items"]
-        if followup:
+        related = getattr(knowledge_store, "retrieve_for_products", None)
+        if result["products"] and callable(related):
+            linked = related([product["id"] for product in result["products"]], limit=6)
+            linked = linked if isinstance(linked, list) else linked.get("items", [])
+            items = linked + items if references.get("_explicit") else items + linked
+        if references.get("_explicit"):
+            items = knowledge_store.get_documents_by_ids(references["document_ids"]) + items
+        elif followup:
             items = items + knowledge_store.get_documents_by_ids(references["document_ids"])
         seen = set()
         for item in items:
@@ -451,6 +460,7 @@ def _data_json(value) -> str:
 
 @router.post("/chat")
 async def chat(request: Request):
+    permissions.require(backend._user(request), "ai.use")
     body, uploaded = await _chat_body(request)
     message = body.get("message", "")
     if not isinstance(message, str) or len(message) > 6000:
@@ -476,6 +486,7 @@ async def chat(request: Request):
     if use_search and not web_query:
         raise HTTPException(400, "请填写公开联网关键词；内部检索资料不会自动加入联网搜索。")
     if use_search:
+        permissions.require(backend._user(request), "ai.web")
         try:
             web_query = web_grounding.validate_query(web_query)
         except ValueError as exc:
@@ -708,6 +719,7 @@ def _meaningful_name(value: str) -> bool:
 @router.post("/title")
 async def generate_title(request: Request, images: list[UploadFile] = File(default=[]),
                          metadata: str = Form("{}"), provider_id: str | None = Form(None)):
+    permissions.require(backend._user(request), "ai.use")
     details = _title_metadata(metadata)
     with _lock:
         selected = _selected(_load(), provider_id)
@@ -798,6 +810,7 @@ def _validate_reviews(value: dict, allowed_ids: set[str]) -> dict:
 @router.post("/deduplicate")
 async def deduplicate(request: Request, images: list[UploadFile] = File(...),
                       provider_id: str | None = Form(None)):
+    permissions.require(backend._user(request), "ai.use")
     started = time.perf_counter()
     with _lock:
         selected = _selected(_load(), provider_id, require_vision=True, require_context=True)

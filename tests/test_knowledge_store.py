@@ -150,7 +150,7 @@ def test_document_edit_reindexes_and_deleted_notes_restore_without_losing_text(c
     assert knowledge.get_documents_by_ids([item['id']])[0]['excerpt'] == '退货先核验物流单号。'
 
 
-def test_all_members_can_read_but_only_author_or_admin_can_edit(client):
+def test_operators_can_read_but_cannot_write_company_knowledge(client):
     admin_note = note(client)
     client.post('/api/team',json={'name':'运营甲','password':'knowledge-test-only','role':'operator'}).raise_for_status()
     client.post('/api/team',json={'name':'运营乙','password':'knowledge-test-only','role':'operator'}).raise_for_status()
@@ -159,12 +159,11 @@ def test_all_members_can_read_but_only_author_or_admin_can_edit(client):
     assert client.get('/api/knowledge/documents').json()['items'][0]['can_edit'] is False
     for method, path, kwargs in [('patch','',{'json':{'title':'不允许'}}),('delete','',{}),('post','/restore',{})]:
         assert getattr(client,method)('/api/knowledge/documents/'+admin_note['id']+path,**kwargs).status_code == 403
-    mine = note(client,title='甲的文档')
-    assert mine['can_edit']
+    assert client.post('/api/knowledge/documents',json={'title':'甲的文档','content':'普通运营不可新增企业知识。'}).status_code == 403
     login(client,'运营乙')
-    assert client.patch('/api/knowledge/documents/'+mine['id'],json={'content':'越权'}).status_code == 403
+    assert client.patch('/api/knowledge/documents/'+admin_note['id'],json={'content':'越权'}).status_code == 403
     login(client)
-    assert client.patch('/api/knowledge/documents/'+mine['id'],json={'content':'管理员复核'}).status_code == 200
+    assert client.patch('/api/knowledge/documents/'+admin_note['id'],json={'content':'老板复核'}).status_code == 200
     client.post('/api/logout')
     assert client.get('/api/knowledge/stats').status_code == 401
     assert client.post('/api/knowledge/documents',json={'title':'x','content':'x'}).status_code == 401
@@ -178,7 +177,7 @@ def test_all_members_can_read_but_only_author_or_admin_can_edit(client):
 ])
 def test_invalid_notes_never_partially_write(client,bad):
     assert client.post('/api/knowledge/documents',json=bad).status_code == 400
-    assert client.get('/api/knowledge/stats').json() == {'documents':0,'chunks':0}
+    assert client.get('/api/knowledge/stats').json() == {'documents':0,'chunks':0,'products':0,'total_sources':0,'can_create':True,'can_archive':True}
 
 
 def test_import_is_bounded_parse_outside_transactions_and_keeps_only_text(client,monkeypatch):
@@ -251,7 +250,7 @@ def test_knowledge_write_and_index_are_rolled_back_together_if_audit_fails(clien
     monkeypatch.setattr(backend,'_audit',fail)
     with pytest.raises(RuntimeError,match='audit failure'):
         note(client)
-    assert client.get('/api/knowledge/stats').json() == {'documents':0,'chunks':0}
+    assert client.get('/api/knowledge/stats').json() == {'documents':0,'chunks':0,'products':0,'total_sources':0,'can_create':True,'can_archive':True}
     assert knowledge.retrieve('规格')['items'] == []
 
 
@@ -298,7 +297,7 @@ def test_restoring_old_database_over_same_path_recreates_missing_knowledge_schem
     # restore can. All connections are closed before replacing the QA database.
     shutil.copyfile(old,backend.DB_PATH)
     assert knowledge._initialized==previous_marker
-    assert client.get('/api/knowledge/stats').json()=={'documents':0,'chunks':0}
+    assert client.get('/api/knowledge/stats').json()=={'documents':0,'chunks':0,'products':0,'total_sources':0,'can_create':True,'can_archive':True}
     assert note(client)['content']
 
 

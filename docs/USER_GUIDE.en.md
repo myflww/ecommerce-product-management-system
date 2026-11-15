@@ -1,6 +1,6 @@
 # E-commerce Product Management System User Guide
 
-Applies to version 1.6.0 (Midoo for Windows)
+Applies to version 1.7.0 (Midoo for Windows)
 
 [简体中文](USER_GUIDE.zh-CN.md) · [Project home](../README.en.md) · [License](../LICENSE)
 
@@ -14,16 +14,21 @@ This guide is for users whose use is permitted by the license. Source is public,
 4. [Image import and product records](#image-import-and-product-records)
 5. [Categories and operational queues](#categories-and-operational-queues)
 6. [Platforms and SKC / SKU variants](#platforms-and-skc--sku-variants)
-7. [Local image duplicate search](#local-image-duplicate-search)
-8. [Prices and browser-assisted collection](#prices-and-browser-assisted-collection)
-9. [AI services and attachments](#ai-services-and-attachments)
-10. [Activity, Trash, and permissions](#activity-trash-and-permissions)
-11. [Backup, recovery, and migration](#backup-recovery-and-migration)
-12. [Run and build from source](#run-and-build-from-source)
-13. [Troubleshooting](#troubleshooting)
-14. [Privacy, license, and reporting](#privacy-license-and-reporting)
+7. [Store filters and persistent product merges](#store-filters-and-persistent-product-merges)
+8. [Trial storefront import](#trial-storefront-import)
+9. [Local image duplicate search](#local-image-duplicate-search)
+10. [Prices and browser-assisted collection](#prices-and-browser-assisted-collection)
+11. [Company announcements](#company-announcements)
+12. [AI services and attachments](#ai-services-and-attachments)
+13. [Activity, Trash, and permissions](#activity-trash-and-permissions)
+14. [Backup, recovery, and migration](#backup-recovery-and-migration)
+15. [Run and build from source](#run-and-build-from-source)
+16. [Troubleshooting](#troubleshooting)
+17. [Privacy, license, and reporting](#privacy-license-and-reporting)
 
-The interface is currently primarily Chinese. This guide includes the original labels where they help identify a control; it does not claim a fully localized English interface.
+Enterprise knowledge, immutable versions, and the map are covered under [Persistent company knowledge and chat modes](#persistent-company-knowledge-and-chat-modes) and [Knowledge nebula](#knowledge-nebula).
+
+The interface is primarily Chinese. Original labels identify controls; this guide does not claim a fully localized English interface.
 
 ## Requirements and desktop window
 
@@ -41,19 +46,19 @@ Use `Midoo.exe --service-manager` for the compatible service manager. It shows s
 
 ### First installation
 
-1. Download `EcommerceProductManager-Setup-1.6.0.exe` from [Releases](https://github.com/myflww/ecommerce-product-management-system/releases).
+1. Download `EcommerceProductManager-Setup-1.7.0.exe` from [Releases](https://github.com/myflww/ecommerce-product-management-system/releases).
 2. Run Setup and confirm installation in its standard window. No PowerShell execution-policy change is needed.
 3. Installation is per-user under `%LOCALAPPDATA%\Programs\EcommerceProductManager`, without administrator rights.
 4. Open **电商产品管理系统** from the desktop or Start menu.
 
-The package contains no publisher's business library, account, or API key. An independent first run creates your own empty library and does not scan private folders. Alternatively, download `EcommerceProductManager-1.6.0-Windows.zip`, extract all files, and run `Midoo.exe` as a portable application. Do not run it from an archive preview. The ZIP's `Install-Desktop.cmd` and `tools/Install-Desktop.ps1` provide a fallback installation method where scripts are allowed.
+The package contains no publisher's business library, account, or API key. An independent first run creates your own empty library and does not scan private folders. Alternatively, download `EcommerceProductManager-1.7.0-Windows.zip`, extract all files, and run `Midoo.exe` as a portable application. Do not run it from an archive preview. The ZIP's `Install-Desktop.cmd` and `tools/Install-Desktop.ps1` provide a fallback installation method where scripts are allowed.
 
 ### Use an existing library
 
 Do not re-import a library or substitute an empty folder. Back up first, then explicitly select its existing path, for example:
 
 ```powershell
-.\EcommerceProductManager-Setup-1.6.0.exe --install --data-dir "D:\Midoo\data"
+.\EcommerceProductManager-Setup-1.7.0.exe --install --data-dir "D:\Midoo\data"
 ```
 
 The generated `desktop-config.json` is machine-local data-location configuration, not a file to publish. A startup argument such as `Midoo.exe --data-dir "D:\Midoo\data"` overrides that configuration, and `MIDOO_DATA_DIR` has highest priority. The authoritative location is shown under **设置与备份 → 局域网与备份** (Settings and backup → LAN and backup).
@@ -77,14 +82,21 @@ If you intend to destroy the library or dedicated browser sign-in data, first ve
 
 ## First login and team accounts
 
-1. Create an administrator name and password when opening an empty library. Passwords need at least eight characters; there is no preset account.
-2. Add teammates under **设置与备份 → 团队账号** (Settings and backup → Team accounts). Each person should use a separate account.
-3. Administrators manage the team, AI providers, and backups. Operators can maintain products they created or currently own.
-4. Change your own password under **我的账号** (My account). Never include it in a public issue or screenshot.
+Create an account and a password of at least eight characters in an empty library. That account becomes the sole **老板 (owner)**; there are no preset credentials. An upgrade recognizes the earliest-created legacy account, breaking equal timestamps by internal ID. Ownership metadata preserves existing users and passwords. This version’s member interface cannot transfer, disable, demote, or create a second owner.
 
-Share the LAN address shown in settings or the compatible manager. Teammates need a trusted common network and access to the host's service port. The program does not change firewall rules, create internet port forwarding, or configure startup automatically.
+Add members under **设置与备份 → 团队账号** (Settings and backup → Team accounts); use separate accounts. Change your own password under **我的账号**. The owner can create administrators or employees. An administrator with account-creation permission can only add employees, not create administrators or adjust their own or anyone else’s capabilities.
 
-Local browser-assistance rights are separate from ordinary LAN access. Being able to view product records or edit a product does not let a remote teammate control the host browser or clear its shop profile.
+The owner opens a member’s **角色与权限** (Role and permissions), chooses the base role and active / disabled state, then selects **继承角色** (Inherit role), **允许** (Allow), or **禁止** (Deny) per capability and saves. Inheritance follows role defaults; exceptions apply to that individual. The server checks permissions on subsequent requests. Disabling invalidates existing sessions. If another edit causes a version conflict, reopen and compare current settings before saving.
+
+| Role | Defaults and fixed limits |
+| --- | --- |
+| Owner | All capabilities; member management and permanent product / knowledge cleanup cannot be delegated. A knowledge-cleanup capability name does not imply a separate cleanup interface exists |
+| Administrator | Create / import / maintain the entire catalog, restore and merge products, create / edit knowledge, add employees, configure manual price collection, use AI / web search, view all activity, and edit / publish announcements. Model configuration, full backup export, knowledge deactivation / restoration, and announcement archiving / restoration require separate owner grants |
+| Employee | Create / import products, edit / remove / restore products they created or own, and use AI / web search. The owner can adjust non-reserved capabilities. Employees can never maintain enterprise knowledge, even when they created a legacy entry |
+
+“Own” products are those created by the member or currently assigned to their name. Whole-catalog editing, removal, and restoration are separate capabilities. Edit permission does not include removal or restoration automatically. Knowledge additionally requires the owner / administrator role and the relevant capability; employee knowledge overrides cannot enable maintenance. Non-reserved capabilities such as full backups and model configuration depend on the member’s actual grants.
+
+Share the LAN address from settings or the compatible manager with teammates on a trusted network. The application does not change firewall rules, forward public ports, or configure startup automatically. Browser assistance and storefront import also require the host’s local address. LAN catalog privileges do not allow remote control of the host browser or clearance of its sign-in profiles.
 
 ## Image import and product records
 
@@ -98,7 +110,7 @@ Each product has an automatically generated company code, name, owner, specifica
 
 ## Categories and operational queues
 
-Custom categories, such as pillar candles, wax sheets, crystals, or molds, are product metadata independent of operational queues. Combine category or uncategorized filters with keywords, platform, and platform state.
+Custom categories, such as pillar candles, wax sheets, crystals, or molds, are product metadata independent of operational queues. Combine category or uncategorized filters with keywords, platform, store, and platform state.
 
 | Queue | Rule |
 | --- | --- |
@@ -124,6 +136,39 @@ Open product **编辑** (Edit), then **平台与上架资料** (Platform and lis
 
 Changing a platform, store, SKC / SKU, URL, specification, region, or currency may invalidate the current quote's target; past history remains. Editing only baseline price or manual listing state is not a new collection of the storefront price.
 
+## Store filters and persistent product merges
+
+The catalog’s store dropdown uses existing platform records and follows the platform filter. Platform, store, and listing state must match the same record. If a product is preparing in store A and listed in store B, filtering “store A + listed” will not match it because of B. Whole-product operational queues still consider all recorded SKUs.
+
+After confirming that existing records represent the same product:
+
+1. Select 2–50 products in the catalog and choose **合并同款** (Merge).
+2. Choose the main product and review images, platform / store groups, SKUs, and counts.
+3. Confirm after checking. The main product retains its name, owner, category, specifications, and notes. Original images and platform / store / SKU records, links, manual states, price history, and provenance move to it. Similar SKUs are not automatically coalesced.
+4. Source products enter Trash. A persistent journal keeps prior metadata and ownership. Open **最近合并** (Recent merges) to inspect and undo; restarting does not clear the journal.
+
+Merging requires `products.merge`, edit rights for every selected product, and removal rights for source products. The result may contain at most 30 images and 100 platform records. Changes after preview require a fresh preview. Linked knowledge also requires edit permission for the affected documents; links move to the main product in the same transaction and append knowledge versions.
+
+Undo requires merge and product-edit permission plus source-restore rights. Knowledge-edit rights are checked again. Later product, SKU, quote, provenance, or knowledge-version / link changes cause a conflict and stop direct undo. Review current records; repeating an old request does not force an overwrite. Restoring knowledge links appends new versions and preserves every older version.
+
+Merged sources cannot be individually restored through ordinary Trash. An active merge’s main and source products cannot be permanently purged. A product linked to knowledge, including inactive documents, also requires explicit unlinking by a knowledge maintainer before the owner can purge it. See [STORE_IMPORT.md](../STORE_IMPORT.md), the bundled Chinese technical reference.
+
+## Trial storefront import
+
+**批量入库 → 从店铺前端导入 · 试用** (Batch import → Storefront import · Trial) currently supports **Temu only and is experimental**. Real dedicated-browser sign-in has encountered redirect loops. Successful authenticated main-image and complete-variant collection has not passed live acceptance. Full-store extraction, all-variant coverage, and success are not guaranteed. Browser / driver availability only means runtime components are ready. The capability endpoint separately reports `experimental=true`, `live_capture_verified=false`, and limitations.
+
+1. A member with `products.import` enters a Temu storefront URL locally on the software host and selects **打开专用浏览器** (Open dedicated browser).
+2. Sign in normally, choose the region, and complete required verification personally. Explicitly select **读取店铺** (Read store). The feature does not bypass verification or read everyday browser profiles.
+3. Select discovered items for detail collection, up to 20 per batch. Only attributable store products from page JSON / visible content qualify. Recommendations, advertisements, and other stores’ products are not import evidence.
+4. Review main images, names, specifications, individual currencies / quotes, and source links in a local preview. Choose create, add to an existing product, or skip. Previewing does not write the catalog. Creating also requires `products.create`; adding to a product requires its edit permission.
+5. New listings are marked listed only when the user explicitly selects the manual listing-confirmation option. A collected quote or URL never implies listing confirmation.
+
+Public product / variant IDs remain separate from merchant SKC / SKU. Missing stable variant identities produce records needing completion, not invented SKU prices. Missing prices, specifications, or store-attribution evidence are reported as gaps or ineligible items. Starting prices, crossed-out prices, and browser-plugin supply prices are not copied to every variant. More than 100 platform records per product cannot be committed directly.
+
+Platform, store, site, public product, and variant provenance identify repeated sources. Recollection does not overwrite existing manual baselines, current quotes, metadata, or listing states. Main images are downloaded safely, checked, and indexed locally. Previews belong to the current login session, expire after about 30 minutes, and have count / memory limits. A successful commit releases preview image memory.
+
+If sign-in repeatedly redirects, close collection and continue with ordinary image batch import; repeated registration is unnecessary. Multi-platform SKUs, manual current prices, and existing browser-assisted collection remain independently usable. Import-specific `browser-store-profiles` stays local, does not copy everyday cookies, and is excluded from ordinary backups, GitHub, and public packages. Real page behavior, sign-in, and variant completeness remain unverified boundaries. See [STORE_IMPORT.md](../STORE_IMPORT.md).
+
 ## Local image duplicate search
 
 1. Open **以图查重** (Image duplicate search) and add main or detail images of the proposed product, up to five query images.
@@ -135,7 +180,7 @@ By default, at most three recommendations are shown, with additional candidates 
 
 Human feedback applies to later review of the same query image; it does not automatically train the entire model. Rebuilding derived embeddings must not delete original images or business records. The application displays a limited state when the model is unavailable.
 
-With administrator permission, **AI 查重** (AI review) compares images for up to eight locally retrieved candidates. It does not search every external marketplace or overwrite human decisions. Model suggestions, visual resemblance, and actual SKU identity are different kinds of evidence.
+With AI-use capability and vision-sharing permission, **AI 查重** (AI review) compares images for up to eight locally retrieved candidates. It does not search every external marketplace or overwrite human decisions. Model suggestions, visual resemblance, and actual SKU identity are different kinds of evidence.
 
 ## Prices and browser-assisted collection
 
@@ -170,11 +215,34 @@ Collection is not guaranteed for script-only, restricted, or verification pages.
 
 Without a usable link or quote, type an amount and its actual currency into the SKU's current-price cell, then click ✓. Only that row's current price changes; baselines and other SKUs remain. Old drafts, network responses, and browser previews cannot overwrite a changed SKU context. On conflict, review the SKU and enter the value again.
 
+## Company announcements
+
+The sidebar’s **公司公告** (Company announcements) shows active public notices and an unread count. Open a notice to read its text, view images, download authorized attachments, and select **标记已读** (Mark read) for its current public revision. Announcements are company-authenticated content: text and files both require sign-in and appropriate visibility. A read mark is not proof of understanding, agreement, or an electronic signature. Republishing a new revision requires a new mark.
+
+With `announcements.edit`, select **撰写公告** (Write announcement). The Word-style toolbar offers headings / paragraphs, sizes, bold, italic, underline, strike-through, text / background colors, alignment, lists, tables, links, undo / redo, and format clearing. Upload or paste images and use the file-attachment control for documents. Microsoft Word is not required, and complete Word layout fidelity is not promised. Rich text is sanitized; external web images cannot become body images directly.
+
+1. **保存草稿** (Save draft) keeps work for announcement managers; ordinary employees cannot see a new draft or its new attachments.
+2. Optionally set pinning and expiry. Expiry input uses local time; blank means no expiry. Titles allow up to 160 characters and rich-text data up to 100,000 characters.
+3. **保存并发布** (Save and publish) requires `announcements.publish`, a title, and text or attachments. It creates the current public snapshot.
+4. Editing a published notice and saving its draft does not change the public text, pin, expiry, or attachments. Publish again to replace that snapshot. An attachment removed from the working draft remains available through the previous public snapshot until publication changes it.
+5. Publication permission allows withdrawal to draft, removing the notice from the ordinary list. `announcements.archive` allows archiving and restoration; restoration produces a draft that needs publication again. Expired notices leave the ordinary list. Draft expiry edits must be published to affect public visibility.
+
+Editing, publication / withdrawal, and archiving / restoration are separate capabilities. Administrators normally receive edit and publish capabilities; archiving / restoration needs another grant. Other members’ management rights depend on their actual permissions. Managers can inspect revision records. Saves and state changes check current revisions; on conflict, preserve your draft and review the other edit. Archiving permission alone does not expose an unpublished working draft.
+
+| Attachment | Limit |
+| --- | --- |
+| Images | JPG, PNG, WebP, GIF; up to 5 MB each; safely re-encoded as JPEG and resized to at most 2000 pixels on the longest side; animation and original format are not retained |
+| Files | PDF, DOCX, XLSX, PPTX, TXT, MD, CSV, JSON, ZIP; up to 10 MB each; download-only, not executed or extracted |
+| Per notice | Up to six images / files, 20 MB combined |
+| Total capacity | Up to 2000 notices and 500 MB attachment storage; historically retained attachment bytes also count |
+
+Notice text, versions, read marks, and attachment bytes reside in company SQLite and are included in complete data backups. Images and files are private company data and are excluded from GitHub and public distributions.
+
 ## AI services and attachments
 
 ### Configure and authorize
 
-Under **设置与备份 → AI 模型服务** (Settings and backup → AI providers), an administrator selects a provider and enters a valid base URL, an available model ID, and API key, then enables it and chooses a default. Do not put keys in URLs, notes, source, screenshots, or public issues.
+Under **设置与备份 → AI 模型服务** (Settings and backup → AI providers), the owner or a member granted `settings.ai` selects a provider and enters a valid base URL, an available model ID, and API key, then enables it and chooses a default. Do not put keys in URLs, notes, source, screenshots, or public issues.
 
 Windows keys are protected with the current Windows user's DPAPI. Existing keys are not returned to the page; a blank key preserves the saved one. Changing the base URL clears the old key to prevent accidental forwarding to another endpoint. Moving to another computer or Windows account normally requires re-entry.
 
@@ -193,7 +261,15 @@ These operations share provider settings and a daily request cap. The cap is not
 
 Under **AI 管家 → 公司知识** (AI assistant → Company knowledge), create a title, category, and text entry, or import TXT, MD, CSV, JSON, PDF, DOCX, and XLSX. Import uses attachment extraction limits: up to six files, 10 MB each, 20 MB combined, and 16,000 extracted characters per document. Only extracted text is retained, not the original file or complete formatting. A partial-content indicator does not mean the whole document was read. Keep original files elsewhere.
 
-Signed-in members can search local knowledge. Administrators or an entry's creator can edit, deactivate, and restore it. Management, viewing, and local retrieval do not require a cloud AI key. Inactive entries are excluded from normal retrieval. Knowledge text is stored in the local database and is retained in complete database backups; never publish the library or its backups to GitHub.
+Enterprise knowledge consists of current company products and documents. Product, SKU, and image records remain in the catalog and need not be copied into documents. Signed-in members can read company-shared knowledge; this is not a system of private folders or confidential groups. Create / import requires an owner or administrator with `knowledge.create`. Editing needs the relevant own / all-document permission; deactivation and restoration separately require `knowledge.archive`. Employees cannot maintain knowledge even if they created an old entry. Administrator edit rights do not imply deactivation rights. Viewing and local retrieval need no cloud key.
+
+Manual entries permit up to 100,000 characters. Capacity is 2000 entries including inactive documents; reaching it requests expansion, not automatic cleanup. Imports retain only bounded extracted text and provenance, not original files. Split long documents and keep originals separately. Inactive entries leave current retrieval and can be restored.
+
+Use **关联商品** (Related products) when editing to search and select up to 30 products. Links help SKU / product questions retrieve associated procedures and experience. A product moved to Trash leaves current retrieval and the nebula, but existing links remain. Text edits do not automatically discard those links; new links to already removed products are forbidden. Permanent product cleanup requires explicit unlinking, including links from inactive knowledge.
+
+Creation, edits, deactivation, restoration, and merge / undo link changes record versions and actors. Old versions are immutable. Users with permission to edit or deactivate that document can open **版本记录** (Revision history) and read past text, sources, and historical links; viewing does not roll back the current version. Old versions do not enter current AI retrieval. Edits submit the current revision; on conflict, reopen and compare the latest source before saving.
+
+Company records and versions never decay, forget, or clear automatically with age or access frequency. Temporary chat attachments’ roughly 60-minute session retention is separate from enterprise knowledge. Clearing chat does not delete company knowledge. Complete backups retain documents, chunks, history, and links; never publish them to GitHub.
 
 Chat has three modes:
 
@@ -203,9 +279,17 @@ Chat has three modes:
 
 Product and document-sharing permissions are independent. Retrieval supplies a bounded set of relevant records or excerpts, not a claim to have read the entire library. `[P1]`, `[K1]`, and source cards refer to actual items retrieved for that question. Product-image cards are rendered locally; displaying them does not mean the model has visually analyzed the original image.
 
+### Knowledge nebula
+
+Under **AI 管家 → 知识星云** (AI assistant → Knowledge nebula), explore products, knowledge documents, categories, and SKUs. Nodes are actual active sources. Edges represent recorded category membership, SKU ownership, and explicit document links, not inferred entities or complete GraphRAG. Brightness, position, size, and animation are visual choices, not authority, probability, or memory strength.
+
+Search by keywords / SKU, filter products or knowledge, pan / zoom, drag nodes, pause motion, or choose a source from the keyboard-accessible list. Open original product or document records. Asking AI from a source fills a chat draft; sending remains explicit and follows AI capabilities and data-sharing permission. Browsing, searching the map, and inspecting versions do not themselves call a cloud model or external graph service.
+
+Large-library views have explicit node limits and show total, matching, and displayed counts. Omitted sources remain fully stored and available to ordinary retrieval. Inactive knowledge and recycled products leave the current map and can reappear after restoration; inactivity on the map never triggers deletion. See [ENTERPRISE_KNOWLEDGE.md](../ENTERPRISE_KNOWLEDGE.md), the bundled Chinese technical reference.
+
 ### Explicit public web search
 
-An administrator must configure and enable an available official DeepSeek search service and permit web search. The chat model may be selected separately. Before sending, the user checks **联网** (Web) and fills the separate **公开搜索关键词** (Public search query) field, up to 128 characters.
+A member with model-configuration permission must configure and enable an available official DeepSeek search service and permit web search. The current user also needs `ai.use` and `ai.web`. The chat model may be selected separately. Before sending, the user checks **联网** (Web) and fills the separate **公开搜索关键词** (Public search query) field, up to 128 characters.
 
 Only that public query goes to the search service. Internal retrieved excerpts and the full conversation are not automatically included. Do not enter business secrets, credentials, or private personal data in that field. Actual results are supplied to the chat model; `[W1]` references can be checked. Failed or empty searches are reported rather than presented as successful browsing.
 
@@ -229,27 +313,27 @@ Documents are reduced to bounded text on the host. Full layout, embedded images,
 
 ## Activity, Trash, and permissions
 
-Recent activity combines actor and start / end date filters. Dates cover complete calendar days in Beijing time. Today, last seven days, and last 30 days shortcuts are available, with 40 records per page. Filtering applies to the entire log, not just the visible page.
+Recent activity combines actor and start / end date filters. Dates cover complete calendar days in Beijing time. Today, last seven days, and last 30 days shortcuts are available, with 40 records per page. Filtering applies to the entire log, not just the visible page. `audit.all` permits all-member activity; otherwise the view contains only the current user’s activity.
 
 Cards support direct editing, one-item removal, and selection of maintainable products on the current page for batch movement to Trash. Batch removal checks every target before committing rather than intentionally partially succeeding. Trash images and details require maintenance permission. Restoration retains company codes, images, and platform / SKU records.
 
-Administrators, a product's creator, or its current owner can maintain it. Do not replace separate member accounts with a shared administrator password. Browser assistance additionally requires requests from the host's local address; product-editing permission over the LAN does not relax this restriction.
+Product editing, removal, and restoration separately follow the owner-granted own / all-product capabilities. Being a creator or assigned owner does not override a denied capability. Do not replace separate member accounts with a shared administrator password. Browser assistance additionally requires requests from the host's local address; product-editing permission over the LAN does not relax this restriction.
 
 ## Backup, recovery, and migration
 
-By default, `data` next to the application holds the database, originals, thumbnails, backups, and optional encrypted AI configuration. Dedicated shop browser profiles are local and are excluded from existing backup exports.
+By default, `data` next to the application holds the database, originals, thumbnails, backups, and optional encrypted AI configuration; confirm the actual path in settings. The database also holds accounts / capabilities, knowledge documents / chunks / immutable versions / product links, announcements / images / attachments / read marks, and persistent merge journals. Dedicated price and storefront browser profiles, including `browser-store-profiles`, remain local and are excluded from existing backup exports.
 
-While running, the service attempts one local automatic backup per day and retains the seven most recent automatic backups. Manual backups are not automatically pruned. Download complete ZIP backups through settings and keep another copy elsewhere. Backups on the same disk do not protect against disk failure.
+While running, the service attempts one local automatic backup per day and retains the seven most recent automatic backups. Manual backups are not automatically pruned. Members with `data.backup` can download complete ZIP backups through settings; administrators do not receive it by default. Export regularly and keep another copy elsewhere. Backups on the same disk do not protect against disk failure.
 
 To recover:
 
 1. Normally close the relevant service and retain a complete copy of the current data directory.
 2. Extract the backup into a new empty directory. Confirm `library.db`, `images`, and `thumbnails` are at the same level.
 3. Point the application at that restored directory, or use it as `data` next to the executable.
-4. Sign in with an account from that backup and check counts, originals, categories, SKUs, price history, and ownership.
+4. Sign in with an account from that backup and check counts, originals, categories, SKUs, price history, ownership, member permissions, knowledge text / versions / links, announcements / attachments / read marks, and merge journals.
 5. On a different computer or Windows account, reconfigure AI keys. Dedicated shop profiles do not migrate through these backups; sign in normally again.
 
-Never upload backups, databases, encrypted configuration, or browser profiles to a public repository. Encrypted configuration is still private internal data.
+Never upload any original imported images, announcement images / attachments, company knowledge, QA images, storefront samples, backups, databases, encrypted API configuration, or browser profiles to a public repository. Public source and distribution packages exclude these records. Encrypted configuration is still private internal data.
 
 ## Run and build from source
 
@@ -280,14 +364,19 @@ Get-ChildItem tests\*_ui_smoke.cjs | ForEach-Object { node $_.FullName }
 powershell -NoProfile -File .\tools\build_windows.ps1
 ```
 
-The build script checks the model checksum and uses `Midoo.spec` to create `dist/windows/Midoo.exe`. Frontend checks require Node.js; normal packaged use does not. Validate the final executable against a separate temporary library. A public archive contains application files, required model assets, and documentation—not working data. Do not rely on `.gitignore` as the only release-privacy check.
+The build script checks the model checksum and uses `Midoo.spec` to create `dist/windows/Midoo.exe`. The planned 1.7.0 asset directory is `dist/release/1.7.0/`; the final release manifest controls. `ENTERPRISE_KNOWLEDGE.md` and `STORE_IMPORT.md` will be bundled. Frontend checks require Node.js; normal packaged use does not. Validate the final executable against a separate temporary library. A public archive contains application files, required model assets, and documentation—not working data. Do not rely on `.gitignore` as the only release-privacy check.
 
 ## Troubleshooting
 
 | Symptom | What to check |
 | --- | --- |
+| A former administrator lacks model settings / backup controls | Ask the owner to review individual capabilities; these require grants, and shared owner passwords are unnecessary |
+| Knowledge edit / history controls are missing | Employees remain read-only; administrators also need document-maintenance capabilities, regardless of legacy creator status |
+| A saved notice still shows its old content | Draft saves preserve the public snapshot; a user with publication permission must publish the update |
+| A merge cannot be undone or its source restored | Review later product / quote / knowledge changes and restoration permission; use Recent merges without bypassing conflicts |
+| Temu sign-in keeps redirecting | Live sign-in / complete-variant acceptance remains unresolved; close collection and use image import without repeated registration |
 | Desktop window cannot start | Check WebView2 and try the compatible service manager; obtain runtimes from official sources |
-| A new installation shows an empty library | Check its displayed data path; do not re-import over the old library; select it with `-DataDir` |
+| A new installation shows an empty library | Check its displayed data path; do not re-import over the old library; select it with `--data-dir` |
 | Host works but teammates cannot connect | Check the shared network, host uptime, correct IP / port, and company firewall policy |
 | Port belongs to another program | Identify whether it is another Midoo instance; do not kill an unknown process; use another `MIDOO_PORT` if needed |
 | No duplicate candidates | Confirm import and model / index readiness; add clear main or detail images and review manually |

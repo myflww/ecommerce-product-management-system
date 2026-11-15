@@ -13,6 +13,8 @@ def package(tmp_path,monkeypatch):
     source=tmp_path/'package';source.mkdir()
     (source/'Midoo.exe').write_bytes(b'fixture-executable')
     (source/'LICENSE').write_text('fixture license')
+    (source/'ENTERPRISE_KNOWLEDGE.md').write_text('public knowledge guide')
+    (source/'STORE_IMPORT.md').write_text('public import guide')
     (source/'data').mkdir();(source/'data'/'library.db').write_text('must not copy')
     (source/'desktop-config.json').write_text('{"data_dir":"private"}')
     (source/'docs').mkdir();(source/'docs'/'guide.md').write_text('guide')
@@ -32,6 +34,8 @@ def test_install_allowlist_preserves_existing_external_data(tmp_path,package):
     assert sentinel.read_bytes()==b'private product library'
     assert not (target/'data'/'library.db').exists()
     assert (target/'docs'/'guide.md').read_text()=='guide'
+    assert (target/'ENTERPRISE_KNOWLEDGE.md').read_text()=='public knowledge guide'
+    assert (target/'STORE_IMPORT.md').read_text()=='public import guide'
     assert json.loads((target/'desktop-config.json').read_text())['data_dir']==str(data)
     assert len(result['shortcuts'])==3
     installer.install(package,target,launch=False)

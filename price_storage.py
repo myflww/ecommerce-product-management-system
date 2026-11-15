@@ -18,6 +18,7 @@ from urllib.parse import urlsplit
 from fastapi import HTTPException
 
 import backend
+import permissions
 import exchange_rates
 
 SETTINGS_KEY = "price_tracking:settings"
@@ -81,7 +82,7 @@ def _validate_settings(value: dict) -> None:
 
 
 def save_settings(payload: Any, user: dict) -> dict:
-    backend._admin(user)
+    permissions.require(user, 'settings.price')
     if not isinstance(payload, dict) or set(payload) - set(DEFAULT_SETTINGS):
         raise HTTPException(400, "价格追踪设置字段不正确。")
     with backend._connection(write=True) as conn:
@@ -104,7 +105,7 @@ def _listing(conn, listing_id: str):
 
 
 def _can_edit(product, user: dict) -> bool:
-    return bool(user and (user["role"] == "admin" or product["created_by"] == user["id"] or product["owner"] == user["name"]))
+    return permissions.can_product(user, product, 'edit')
 
 
 def _tracking(conn, listing_id: str):

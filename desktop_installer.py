@@ -11,7 +11,7 @@ from pathlib import Path
 
 TITLE = '电商产品管理系统'
 MARKER = '.ecommerce-product-manager-install.json'
-ALLOW_FILES = {'Midoo.exe','Uninstall.exe','LICENSE','NOTICE','THIRD_PARTY_NOTICES.md','README.md','README.en.md','VERSION','Install-Desktop.cmd','Uninstall-Desktop.cmd'}
+ALLOW_FILES = {'Midoo.exe','Uninstall.exe','LICENSE','NOTICE','THIRD_PARTY_NOTICES.md','README.md','README.en.md','VERSION','Install-Desktop.cmd','Uninstall-Desktop.cmd','PRICE_TRACKING.md','PRODUCT_CLASSIFICATION.md','ENTERPRISE_KNOWLEDGE.md','STORE_IMPORT.md'}
 ALLOW_DIRS = {'docs','third_party_licenses','tools'}
 
 

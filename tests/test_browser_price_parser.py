@@ -7,7 +7,7 @@ import pytest
 
 import browser_price_parser as parser
 
-URL='https://www.temu.com/us-zh-Hans/product-g-123456789012345.html'
+URL='https://www.temu.com/us-zh-Hans/product-g-700000000000002.html'
 
 
 def target(**changes):
@@ -134,11 +134,11 @@ def test_snapshot_budgets_and_candidate_ids():
 
 
 def test_temu_same_product_allows_query_variant_changes_and_mobile_host():
-    other='https://m.temu.com/another-title-g-123456789012345.html?sku_id=different'
+    other='https://m.temu.com/another-title-g-700000000000002.html?sku_id=different'
     assert parser.parse_snapshot(snapshot(url=other),target())['candidates']
 
 
-@pytest.mark.parametrize('url', ['https://www.temu.com/us-en/product-g-999999999999.html','https://temu.com.evil.example/us-en/product-g-123456789012345.html','https://evil.example/us-en/product-g-123456789012345.html','https://www.temu.com/login.html','file:///product-g-123456789012345.html','https://name:secret@www.temu.com/us/product-g-123456789012345.html'])
+@pytest.mark.parametrize('url', ['https://www.temu.com/us-en/product-g-700000000001.html','https://temu.com.evil.example/us-en/product-g-700000000000002.html','https://evil.example/us-en/product-g-700000000000002.html','https://www.temu.com/login.html','file:///product-g-700000000000002.html','https://name:secret@www.temu.com/us/product-g-700000000000002.html'])
 def test_wrong_product_or_host_is_never_read_as_target(url):
     result=parser.parse_snapshot(snapshot(url=url),target())
     assert result['code']=='identity_mismatch'
@@ -146,11 +146,11 @@ def test_wrong_product_or_host_is_never_read_as_target(url):
 
 
 def test_temu_goods_id_query_identity():
-    t=target(source_url='https://www.temu.com/goods.html?goods_id=123456789012345&sku_id=A')
-    assert parser.parse_snapshot(snapshot(url='https://www.temu.com/goods.html?goods_id=123456789012345&sku_id=D'),t)['candidates']
+    t=target(source_url='https://www.temu.com/goods.html?goods_id=700000000000002&sku_id=A')
+    assert parser.parse_snapshot(snapshot(url='https://www.temu.com/goods.html?goods_id=700000000000002&sku_id=D'),t)['candidates']
     assert not parser.parse_snapshot(snapshot(url='https://www.temu.com/goods.html?goods_id=99'),t)['candidates']
     assert not parser.parse_snapshot(snapshot(url=URL+'?goods_id=999'),target())['candidates']
-    assert not parser.parse_snapshot(snapshot(url='https://www.temu.com/goods.html?goods_id=123456789012345&goods_id=99'),t)['candidates']
+    assert not parser.parse_snapshot(snapshot(url='https://www.temu.com/goods.html?goods_id=700000000000002&goods_id=99'),t)['candidates']
 
 
 def test_generic_product_path_and_query_product_id_are_protected():

@@ -31,6 +31,7 @@ from PIL import Image
 from starlette.concurrency import run_in_threadpool
 
 from image_engine import compare_features, extract_features, make_thumbnail
+import permissions
 
 try:
     import semantic_engine
@@ -42,7 +43,7 @@ try:
 except ImportError:
     fast_compare_features = compare_features
 
-VERSION = "1.6.0"
+VERSION = "1.7.0"
 DATA_DIR: Path | None = None
 DB_PATH: Path | None = None
 COOKIE_NAME = "midoo_session"
@@ -142,6 +143,7 @@ def init_storage(data_dir: Path) -> None:
             conn.execute("ALTER TABLE products ADD COLUMN listings_initialized INTEGER NOT NULL DEFAULT 0")
         if "category" not in columns:
             conn.execute("ALTER TABLE products ADD COLUMN category TEXT NOT NULL DEFAULT ''")
+        permissions.init_storage(conn)
 
 
 def get_connection() -> sqlite3.Connection:
@@ -170,8 +172,11 @@ def _connection(write: bool = False):
         conn.close()
 
 
-def _public_user(row) -> dict:
-    return {k: row[k] for k in ("id", "name", "role")}
+def _public_user(row, conn=None) -> dict:
+    if conn is not None:
+        return permissions.public_user(conn, row)
+    with _connection() as connection:
+        return permissions.public_user(connection, row)
 
 
 def authenticate_request(request: Request) -> dict | None:
@@ -181,7 +186,8 @@ def authenticate_request(request: Request) -> dict | None:
     with _connection() as conn:
         row = conn.execute("""SELECT u.id,u.name,u.role FROM sessions s JOIN users u ON u.id=s.user_id
             WHERE s.token_hash=? AND s.expires_at>?""", (hashlib.sha256(token.encode()).hexdigest(), now())).fetchone()
-    return _public_user(row) if row else None
+        user = _public_user(row, conn) if row else None
+        return user if user and not user["disabled"] else None
 
 
 def check_origin(request: Request) -> None:
@@ -212,13 +218,12 @@ def _user(request: Request) -> dict:
 
 
 def _admin(user: dict) -> None:
-    if user["role"] != "admin":
+    if user["role"] not in {"owner", "admin"}:
         raise HTTPException(403, "此操作需要管理员权限")
 
 
 def _may_edit(product, user: dict) -> None:
-    if user["role"] != "admin" and product["created_by"] != user["id"] and product["owner"] != user["name"]:
-        raise HTTPException(403, "只有管理员、录入人或商品负责人可以修改此商品")
+    permissions.require_product(user, product, "edit")
 
 
 def _password_hash(password: str) -> str:
@@ -276,10 +281,12 @@ def setup(request: Request, response: Response, payload: dict = Body(...)):
     with _connection(write=True) as conn:
         if conn.execute("SELECT 1 FROM users LIMIT 1").fetchone():
             raise HTTPException(409, "管理员已创建，请直接登录")
-        user = {"id": uuid.uuid4().hex, "name": name, "role": "admin"}
-        conn.execute("INSERT INTO users VALUES(?,?,?,?,?)", (user["id"], name, password_hash, "admin", now()))
+        user = {"id": uuid.uuid4().hex, "name": name, "role": "admin", "created_at": now()}
+        conn.execute("INSERT INTO users(id,name,password_hash,role,created_at) VALUES(?,?,?,?,?)", (user["id"], name, password_hash, "admin", user["created_at"]))
+        permissions.establish_owner(conn, user["id"])
         _session(conn, user["id"], response, request)
         _audit(conn, user, "setup", "创建公司商品库")
+        user = _public_user(user, conn)
     return {"user": user}
 
 
@@ -300,7 +307,9 @@ def login(request: Request, response: Response, payload: dict = Body(...)):
         valid = _password_matches(payload.get("password"), stored)
         if not row or not valid:
             raise HTTPException(401, "成员名称或密码不正确")
-        user = _public_user(row)
+        user = _public_user(row, conn)
+        if user["disabled"]:
+            raise HTTPException(401, "成员名称或密码不正确，或账号已停用")
         _session(conn, user["id"], response, request)
     with _login_lock:
         _login_attempts.pop(key, None)
@@ -344,14 +353,25 @@ def _product(conn, product_id: str, include_deleted=False) -> sqlite3.Row:
     return row
 
 
-def _serialize_product(conn, row) -> dict:
+def _serialize_product(conn, row, user=None) -> dict:
     item = {k: row[k] for k in ("id", "code", "name", "owner", "status", "category", "specs", "notes", "link", "created_at", "updated_at", "created_by", "batch_id")}
     item["listings"] = [dict(listing) for listing in conn.execute(
         "SELECT id,platform,store,product_code,product_number,status,price,currency,link FROM product_listings WHERE product_id=? ORDER BY position,id", (row["id"],))]
     has_tracking = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='price_tracking'").fetchone()
     tracked = {entry["listing_id"]: entry for entry in conn.execute(
         "SELECT t.listing_id,t.source_url,t.region,t.variant_hint FROM price_tracking t JOIN product_listings l ON l.id=t.listing_id WHERE l.product_id=?", (row["id"],))} if has_tracking else {}
+    has_sources = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='store_import_sources'").fetchone()
+    sources = {entry["listing_id"]: entry for entry in conn.execute(
+        "SELECT s.listing_id,s.platform,s.store_id,s.store_name,s.site,s.source_product_id,s.source_variant_id,s.source_url "
+        "FROM store_import_sources s JOIN product_listings l ON l.id=s.listing_id WHERE l.product_id=?", (row["id"],))} if has_sources else {}
     for listing in item["listings"]:
+        source = sources.get(listing["id"])
+        if source:
+            # Public storefront identities are provenance, never merchant SKU/SKC.
+            listing["source"] = {key: source[column] for key, column in (
+                ("platform", "platform"), ("store_id", "store_id"), ("store_name", "store_name"),
+                ("site", "site"), ("product_id", "source_product_id"), ("variant_id", "source_variant_id"),
+                ("url", "source_url"))}
         config = tracked.get(listing["id"])
         if config:
             listing["variant_hint"] = config["variant_hint"]
@@ -361,6 +381,10 @@ def _serialize_product(conn, row) -> dict:
     item["workflow_states"] = _workflow_memberships(row, item["listings"])
     item["images"] = [{"id": im["id"], "url": f"/media/{im['id']}", "thumb_url": f"/media/{im['id']}?thumb=1", "name": im["name"]}
                       for im in conn.execute("SELECT id,name FROM images WHERE product_id=? ORDER BY created_at,id", (row["id"],))]
+    if user is not None:
+        item.update(can_edit=permissions.can_product(user, row, "edit"),
+                    can_delete=permissions.can_product(user, row, "delete"),
+                    can_restore=permissions.can_product(user, row, "restore"))
     return item
 
 
@@ -430,6 +454,9 @@ def _stats(conn) -> dict:
         "workflow_primary_counts": primary_counts,
         "workflow_categories_overlap": True,
         "platforms": [row[0] for row in conn.execute("SELECT DISTINCT l.platform FROM product_listings l JOIN products p ON p.id=l.product_id WHERE p.deleted=0 ORDER BY l.platform COLLATE NOCASE")],
+        "platform_stores": [dict(row) for row in conn.execute("""SELECT DISTINCT l.platform,l.store
+            FROM product_listings l JOIN products p ON p.id=l.product_id
+            WHERE p.deleted=0 AND l.store<>'' ORDER BY l.platform COLLATE NOCASE,l.store COLLATE NOCASE,l.platform,l.store""")],
         "recent_imports": conn.execute("SELECT COUNT(*) FROM batches WHERE undone=0 AND created_at>?", ((datetime.now(timezone.utc)-timedelta(days=7)).isoformat(),)).fetchone()[0],
         "last_updated": conn.execute("SELECT MAX(updated_at) FROM products WHERE deleted=0").fetchone()[0],
     }
@@ -453,10 +480,12 @@ def categories():
 
 
 @router.get("/api/products")
-def products(q: str = Query("", max_length=500), status: str = "", owner: str = "", limit: int = Query(60, ge=1, le=200), offset: int = Query(0, ge=0),
+def products(request: Request, q: str = Query("", max_length=500), status: str = "", owner: str = "", limit: int = Query(60, ge=1, le=200), offset: int = Query(0, ge=0),
              workflow_state: str = "", platform: str = Query("", max_length=60), listing_status: str = "",
-             category: str = Query("", max_length=60), uncategorized: bool = False):
+             category: str = Query("", max_length=60), uncategorized: bool = False,
+             store: str = Query("", max_length=80)):
     where, args = ["p.deleted=0"], []
+    store = store.strip()
     category = _category_name(category)
     if category:
         where.append("p.category=?")
@@ -476,11 +505,14 @@ def products(q: str = Query("", max_length=500), status: str = "", owner: str = 
         if workflow_state not in WORKFLOW_STATES:
             raise HTTPException(400, "商品运营分类不正确")
         where.append(_workflow_filter_sql(workflow_state))
-    if platform or listing_status:
+    if platform or listing_status or store:
         listing_conditions = ["l.product_id=p.id"]
         if platform:
             listing_conditions.append("l.platform=? COLLATE NOCASE")
             args.append(platform.strip())
+        if store:
+            listing_conditions.append("l.store=?")
+            args.append(store.strip())
         if listing_status:
             if listing_status not in {"pending", "listed", "archived"}:
                 raise HTTPException(400, "平台上架状态不正确")
@@ -494,13 +526,13 @@ def products(q: str = Query("", max_length=500), status: str = "", owner: str = 
     with _connection() as conn:
         total = conn.execute(f"SELECT COUNT(*) FROM products p WHERE {condition}", args).fetchone()[0]
         rows = conn.execute(f"SELECT p.* FROM products p WHERE {condition} ORDER BY p.updated_at DESC,p.id LIMIT ? OFFSET ?", args + [limit, offset]).fetchall()
-        return {"items": [_serialize_product(conn, row) for row in rows], "total": total}
+        return {"items": [_serialize_product(conn, row, _user(request)) for row in rows], "total": total}
 
 
 @router.get("/api/products/{product_id}")
-def get_product(product_id: str):
+def get_product(product_id: str, request: Request):
     with _connection() as conn:
-        return _serialize_product(conn, _product(conn, product_id))
+        return _serialize_product(conn, _product(conn, product_id), _user(request))
 
 
 def _category_name(value: Any) -> str:
@@ -874,7 +906,7 @@ def _create_product_sync(metadata, images, user):
                 duplicate_matches.extend(dict(row) for row in existing)
             product_id = _insert_product(conn, metadata, images, user, None, written)
             _audit(conn, user, "create", "录入商品：" + metadata["name"], product_id)
-            result = _serialize_product(conn, _product(conn, product_id))
+            result = _serialize_product(conn, _product(conn, product_id), user)
             # Rechecked while holding the write transaction, so an identical image
             # registered by another operator between search and submit is visible.
             result["duplicate_matches"] = list({item["id"]: item for item in duplicate_matches}.values())
@@ -887,6 +919,7 @@ def _create_product_sync(metadata, images, user):
 @router.post("/api/products")
 async def create_product(request: Request, metadata: str = Form("{}"), images: list[UploadFile] = File(...)):
     user = _user(request)
+    permissions.require(user, "products.create")
     info = _metadata(_json_form(metadata, "商品信息"), user)
     prepared = await _prepare_uploads(images, 30)
     return await run_in_threadpool(_create_product_sync, info, prepared, user)
@@ -922,7 +955,7 @@ def _import_sync(groups, prepared, user):
                 ids.append(_insert_product(conn, metadata, images, user, batch_id, written))
             _audit(conn, user, "import", f"批量入库 {len(ids)} 个商品、{len(written)//2} 张图片", batch_id=batch_id)
             return {"batch_id": batch_id, "created": len(ids), "images": len(written)//2, "duplicates": duplicates,
-                    "duplicate_matches": matches[:30], "items": [_serialize_product(conn, _product(conn, pid)) for pid in ids]}
+                    "duplicate_matches": matches[:30], "items": [_serialize_product(conn, _product(conn, pid), user) for pid in ids]}
     except Exception:
         _cleanup(written)
         raise
@@ -930,6 +963,8 @@ def _import_sync(groups, prepared, user):
 
 @router.post("/api/import")
 async def import_products(request: Request, manifest: str = Form(...), images: list[UploadFile] = File(...)):
+    permissions.require(_user(request), "products.import")
+    permissions.require(_user(request), "products.create")
     payload = _json_form(manifest, "导入分组")
     groups = payload.get("groups")
     if not isinstance(groups, list) or not 1 <= len(groups) <= MAX_BATCH_IMAGES:
@@ -941,12 +976,17 @@ async def import_products(request: Request, manifest: str = Form(...), images: l
 @router.post("/api/import/{batch_id}/undo")
 def undo_import(batch_id: str, request: Request):
     user = _user(request)
+    if not (permissions.has(user, "products.delete_own") or permissions.has(user, "products.delete_all")):
+        raise HTTPException(403, "没有撤销导入并移除商品的权限。")
     with _connection(write=True) as conn:
         batch = conn.execute("SELECT * FROM batches WHERE id=?", (batch_id,)).fetchone()
         if not batch or batch["undone"]:
             raise HTTPException(404, "此导入批次不存在或已撤销")
-        if user["role"] != "admin" and batch["created_by"] != user["id"]:
-            raise HTTPException(403, "只能撤销自己导入的批次")
+        products = conn.execute("SELECT * FROM products WHERE batch_id=?", (batch_id,)).fetchall()
+        if not products and batch["created_by"] != user["id"] and not permissions.has(user, "products.delete_all"):
+            raise HTTPException(403, "没有撤销此导入批次的权限。")
+        for product in products:
+            permissions.require_product(user, product, "delete")
         changed = conn.execute("SELECT 1 FROM products WHERE batch_id=? AND (updated_at<>created_at OR deleted=1)", (batch_id,)).fetchone()
         if changed:
             raise HTTPException(409, "批次中的商品已被后续修改，请逐条核对，不能整批撤销")
@@ -985,7 +1025,7 @@ def update_listing_status(product_id: str, listing_id: str, request: Request, pa
             identity = " · ".join(filter(None, (listing["platform"], listing["store"],
                 "SKU " + (listing["product_code"] or "未填写"), "SKC " + (listing["product_number"] or "未填写"))))
             _audit(conn, user, "listing_status", f"人工确认 {product['name']} · {identity}：{names[current]} → {names[status]}", product_id)
-        result = _serialize_product(conn, _product(conn, product_id))
+        result = _serialize_product(conn, _product(conn, product_id), user)
         return {"product": result, "listing": next(row for row in result["listings"] if row["id"] == listing_id)}
 
 
@@ -1004,7 +1044,7 @@ def update_product(product_id: str, request: Request, payload: dict = Body(...))
             sql = ",".join(key + "=?" for key in fields)
             conn.execute(f"UPDATE products SET {sql + ',' if sql else ''}updated_at=? WHERE id=?", list(fields.values()) + [now(), product_id])
             _audit(conn, user, "update", "更新商品：" + fields.get("name", product["name"]), product_id)
-        return _serialize_product(conn, _product(conn, product_id))
+        return _serialize_product(conn, _product(conn, product_id), user)
 
 
 @router.delete("/api/products/{product_id}")
@@ -1012,7 +1052,7 @@ def delete_product(product_id: str, request: Request):
     user = _user(request)
     with _connection(write=True) as conn:
         product = _product(conn, product_id)
-        _may_edit(product, user)
+        permissions.require_product(user, product, "delete")
         conn.execute("UPDATE products SET deleted=1,updated_at=? WHERE id=?", (now(), product_id))
         _audit(conn, user, "delete", "移除商品：" + product["name"], product_id)
     return {"ok": True}
@@ -1033,7 +1073,7 @@ def _add_images_sync(product_id, prepared, user):
             if unique:
                 conn.execute("UPDATE products SET updated_at=? WHERE id=?", (now(), product_id))
                 _audit(conn, user, "add_images", f"为 {product['name']} 补充 {len(unique)} 张图片", product_id)
-            return _serialize_product(conn, _product(conn, product_id))
+            return _serialize_product(conn, _product(conn, product_id), user)
     except Exception:
         _cleanup(written)
         raise
@@ -1135,7 +1175,7 @@ def _search_sync(prepared, user, limit: int = 3, include_weak: bool = False):
                 continue
             pid = match.pop("product_id")
             match.pop("_rank")
-            match["product"] = _serialize_product(conn, _product(conn, pid))
+            match["product"] = _serialize_product(conn, _product(conn, pid), user)
             match["query_fingerprint"] = fingerprints[match["query_index"]]
             match["previous_decision"] = prior_by_product.get(pid)
             match["score_kind"] = "retrieval_rank"
@@ -1195,6 +1235,7 @@ def record_decision(request: Request, payload: dict = Body(...)):
         raise HTTPException(400, "核对备注格式不正确")
     with _connection(write=True) as conn:
         product = _product(conn, product_id)
+        permissions.require_product(user, product, "edit")
         conn.execute("INSERT INTO decisions VALUES(?,?,?,?,?,?,?)", (uuid.uuid4().hex, product["id"], decision, note, fingerprint, user["id"], now()))
         conn.execute("UPDATE products SET updated_at=? WHERE id=?", (now(), product["id"]))
         label = {"same": "确认同款", "different": "标记不同商品", "uncertain": "标记待核实"}[decision]
@@ -1224,6 +1265,10 @@ def activity(request: Request, limit: int = Query(40, ge=1, le=200),
     if dates.get("start_date") and dates.get("end_date") and dates["start_date"] > dates["end_date"]:
         raise HTTPException(400, "开始日期不能晚于结束日期。")
     clauses, params = [], []
+    all_actors = permissions.has(user, "audit.all")
+    if not all_actors:
+        clauses.append("a.user_id=?")
+        params.append(user["id"])
     if actor_id:
         if actor_id == "__system__":
             clauses.append("a.user_id IS NULL")
@@ -1250,42 +1295,100 @@ def activity(request: Request, limit: int = Query(40, ge=1, le=200),
             SELECT a.user_id,COALESCE(u.name,a.actor) AS name,
                    ROW_NUMBER() OVER (PARTITION BY a.user_id ORDER BY a.created_at DESC,a.id DESC) AS rank
             FROM activity a LEFT JOIN users u ON u.id=a.user_id
-        ) SELECT user_id,name FROM recorded_actors WHERE rank=1 ORDER BY name COLLATE NOCASE,user_id""").fetchall()
+            """ + (" WHERE a.user_id=?" if not all_actors else "") + """
+        ) SELECT user_id,name FROM recorded_actors WHERE rank=1 ORDER BY name COLLATE NOCASE,user_id""", [] if all_actors else [user["id"]]).fetchall()
         actors = [{"id": row["user_id"] if row["user_id"] is not None else "__system__", "name": row["name"]} for row in actor_rows]
         items = []
         for row in rows:
             item = dict(row)
-            item["can_undo"] = bool(row["action"] == "import" and not row["undone"] and (user["role"] == "admin" or user["id"] == row["batch_creator"]))
+            item["can_undo"] = bool(row["action"] == "import" and not row["undone"])
             if item["can_undo"]:
-                item["can_undo"] = not bool(conn.execute("SELECT 1 FROM products WHERE batch_id=? AND (updated_at<>created_at OR deleted=1) LIMIT 1", (row["batch_id"],)).fetchone())
+                batch_products = conn.execute("SELECT * FROM products WHERE batch_id=?", (row["batch_id"],)).fetchall()
+                item["can_undo"] = bool(batch_products) and all(permissions.can_product(user, product, "delete") for product in batch_products) and not any(product["updated_at"] != product["created_at"] or product["deleted"] for product in batch_products)
             item.pop("batch_creator", None)
             items.append(item)
         return {"items": items, "total": total, "actors": actors}
 
 
+@router.get("/api/permissions")
+def permission_catalog():
+    return permissions.catalog()
+
+
 @router.get("/api/team")
-def team():
+def team(request: Request):
+    actor = _user(request)
     with _connection() as conn:
-        rows = conn.execute("SELECT id,name,role,created_at FROM users ORDER BY created_at").fetchall()
-        return {"items": [dict(r) for r in rows]}
+        rows = conn.execute("SELECT id,name,role,created_at FROM users ORDER BY created_at,id").fetchall()
+        return {"items": [permissions.public_user(conn, row, overrides=permissions.is_owner(actor, conn)) for row in rows]}
 
 
 @router.post("/api/team")
 def create_member(request: Request, payload: dict = Body(...)):
     user = _user(request)
-    _admin(user)
+    permissions.require(user, "team.create")
+    if set(payload) - {"name", "password", "role"}:
+        raise HTTPException(400, "请只填写成员名称、初始密码和角色；成员授权由老板单独设置。")
     name, role = _name(payload.get("name")), payload.get("role", "operator")
     if role not in {"admin", "operator"}:
         raise HTTPException(400, "成员角色不正确")
+    if role == "admin" and not permissions.is_owner(user):
+        raise HTTPException(403, "只有老板可以创建管理员，管理员只能添加员工。")
     password_hash = _password_hash(payload.get("password"))
     member = {"id": uuid.uuid4().hex, "name": name, "role": role, "created_at": now()}
     try:
         with _connection(write=True) as conn:
-            conn.execute("INSERT INTO users VALUES(?,?,?,?,?)", (member["id"], name, password_hash, role, member["created_at"]))
+            conn.execute("INSERT INTO users(id,name,password_hash,role,created_at) VALUES(?,?,?,?,?)", (member["id"], name, password_hash, role, member["created_at"]))
             _audit(conn, user, "team", "添加成员：" + name)
+            member = permissions.public_user(conn, member, overrides=permissions.is_owner(user, conn))
     except sqlite3.IntegrityError:
         raise HTTPException(409, "此成员名称已存在")
     return member
+
+
+@router.patch("/api/team/{member_id}")
+def update_member(member_id: str, request: Request, payload: dict = Body(...)):
+    actor = _user(request)
+    permissions.require(actor, "team.manage")
+    if not isinstance(payload, dict) or set(payload) - {"expected_revision", "role", "disabled", "permissions"}:
+        raise HTTPException(400, "成员设置字段不正确。")
+    expected = payload.get("expected_revision")
+    if type(expected) is not int or expected < 0 or len(payload) < 2:
+        raise HTTPException(400, "请刷新成员资料，并提供当前版本与需要修改的设置。")
+    if "role" in payload and payload["role"] not in ("admin", "operator"):
+        raise HTTPException(400, "角色只能是管理员或员工，老板身份不能创建或转移。")
+    if "disabled" in payload and type(payload["disabled"]) is not bool:
+        raise HTTPException(400, "账号停用开关须为布尔值。")
+    overrides = permissions.validate_overrides(payload["permissions"]) if "permissions" in payload else None
+    with _connection(write=True) as conn:
+        target = conn.execute("SELECT id,name,role,created_at FROM users WHERE id=?", (member_id,)).fetchone()
+        if not target:
+            raise HTTPException(404, "成员不存在。")
+        if permissions.is_owner(dict(target), conn):
+            raise HTTPException(403, "唯一老板账号不能停用、降级或调整授权。")
+        before = permissions.public_user(conn, target, overrides=True)
+        if before["revision"] != expected:
+            raise HTTPException(409, "成员设置已被修改，请刷新后重试。")
+        role = payload.get("role", target["role"])
+        if overrides is not None:
+            permissions.validate_overrides(overrides, role)
+        disabled = payload.get("disabled", before["disabled"])
+        conn.execute("UPDATE users SET role=? WHERE id=?", (role, member_id))
+        if overrides is not None or role != target["role"]:
+            conn.execute("DELETE FROM permission_overrides WHERE user_id=?", (member_id,))
+        if overrides:
+            conn.executemany("INSERT INTO permission_overrides(user_id,permission_key,allowed) VALUES(?,?,?)",
+                             [(member_id, key, int(value)) for key, value in overrides.items()])
+        conn.execute("""INSERT INTO account_access(user_id,disabled,revision,updated_at) VALUES(?,?,?,?)
+            ON CONFLICT(user_id) DO UPDATE SET disabled=excluded.disabled,revision=excluded.revision,updated_at=excluded.updated_at""",
+                     (member_id, int(disabled), expected + 1, now()))
+        if disabled:
+            conn.execute("DELETE FROM sessions WHERE user_id=?", (member_id,))
+        row = conn.execute("SELECT id,name,role,created_at FROM users WHERE id=?", (member_id,)).fetchone()
+        result = permissions.public_user(conn, row, overrides=True)
+        changes = {key: {"before": before[key], "after": result[key]} for key in ("role", "disabled", "permission_overrides") if before[key] != result[key]}
+        _audit(conn, actor, "team_permissions", "更新成员设置：" + target["name"] + " · " + json.dumps(changes, ensure_ascii=False, sort_keys=True))
+    return result
 
 
 @router.get("/media/{image_id}")
@@ -1356,7 +1459,7 @@ def create_backup() -> Path:
 @router.post("/api/backup")
 def backup(request: Request):
     user = _user(request)
-    _admin(user)
+    permissions.require(user, "data.backup")
     path = _make_backup(user)
     return FileResponse(path, filename=path.name, media_type="application/zip", headers={"Cache-Control": "no-store"})
 
@@ -1374,7 +1477,7 @@ def system(request: Request):
         pass
     with _connection() as conn:
         last = conn.execute("SELECT value FROM app_meta WHERE key='last_backup'").fetchone()
-    return {"data_path": str(DATA_DIR) if _user(request)["role"] == "admin" else "公司主机集中保存", "local_url": f"http://127.0.0.1:{port}",
+    return {"data_path": str(DATA_DIR) if _user(request)["role"] in {"owner", "admin"} else "公司主机集中保存", "local_url": f"http://127.0.0.1:{port}",
             "lan_urls": [f"http://{ip}:{port}" for ip in sorted(ips)], "version": VERSION,
             "engine": "DINOv2 本地视觉语义检索" if _semantic_model_status().get("loaded") else "本地视觉模型未就绪：仅原图与人工核对检索",
             "search_index": search_index_status(), "last_backup": last[0] if last else None,

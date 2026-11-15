@@ -150,6 +150,10 @@ def test_undo_permission_marker_and_activity_auth_are_preserved(client):
     with backend._connection(write=True) as conn:
         conn.execute("INSERT INTO batches VALUES(?,?,?,0)", ("batch-a", "operator-a", backend.now()))
         conn.execute("INSERT INTO batches VALUES(?,?,?,1)", ("batch-b", "operator-a", backend.now()))
+        stamp = backend.now()
+        conn.execute("""INSERT INTO products(id,code,name,owner,created_by,batch_id,created_at,updated_at)
+                        VALUES(?,?,?,?,?,?,?,?)""",
+                     ("batch-a-product", "TEST-UNDO-1", "实际批次商品", "新运营甲", "operator-a", "batch-a", stamp, stamp))
     record(action="import", batch_id="batch-a", description="可撤销")
     record(action="import", batch_id="batch-b", description="已撤销")
     result = items(client, actor_id="operator-a")

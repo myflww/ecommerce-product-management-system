@@ -26,8 +26,14 @@ import browser_price_engine
 import browser_price_routes
 import semantic_engine
 import knowledge_store
+import knowledge_graph
+import announcements
+import product_merge
+import store_import_storage
+import store_import_engine
+import store_import_routes
 
-VERSION = "1.6.0"
+VERSION = "1.7.0"
 ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 USER_ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else ROOT
 DATA_DIR = Path(os.environ.get("MIDOO_DATA_DIR", str(USER_ROOT / "data"))).resolve()
@@ -39,6 +45,10 @@ async def lifespan(application: FastAPI):
     ai_service.init_config(DATA_DIR)
     price_tracking.init_storage()
     knowledge_store.init_storage()
+    announcements.init_storage()
+    product_merge.init_storage()
+    store_import_storage.init_storage()
+    store_import_engine.init_engine(DATA_DIR)
     browser_price_engine.init_engine(DATA_DIR)
     try:
         await asyncio.to_thread(semantic_engine.init_model, ROOT / "models")
@@ -62,6 +72,7 @@ async def lifespan(application: FastAPI):
         with contextlib.suppress(asyncio.CancelledError):
             await task
         await asyncio.to_thread(browser_price_engine.shutdown)
+        await asyncio.to_thread(store_import_engine.shutdown)
 
 
 def automatic_backup():
@@ -102,6 +113,10 @@ async def invalid_request(request: Request, exc: RequestValidationError):
 
 
 app.include_router(product_management.router)
+app.include_router(product_merge.router)
+app.include_router(store_import_routes.router)
+app.include_router(announcements.router)
+app.include_router(knowledge_graph.router)
 app.include_router(knowledge_store.router)
 app.include_router(browser_price_routes.router)
 app.include_router(price_tracking.router)

@@ -89,6 +89,16 @@ def test_release_output_extra_is_rejected_before_packaging_or_checksums(tree):
     assert not package.exists()
 
 
+def test_store_browser_profiles_cannot_enter_the_public_package(tree):
+    _, package, output = tree
+    private = package / 'browser-store-profiles'
+    private.mkdir(parents=True)
+    (private / 'session.txt').write_text('synthetic private session', encoding='utf-8')
+    with pytest.raises(RuntimeError, match='Private'):
+        release.main()
+    assert (private / 'session.txt').exists() and not list(output.glob('*.zip'))
+
+
 def test_model_directory_extra_is_rejected_before_any_archive_is_written(tree):
     source, _, output = tree
     stale = source / 'models' / 'dinov2-small' / 'customer.csv'

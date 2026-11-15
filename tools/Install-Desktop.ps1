@@ -70,7 +70,7 @@ $dataPath = Get-OrdinaryPath $dataPath $installPath
 Assert-DirectoryOrMissing $dataPath
 
 # Preflight all sources and destinations before copying any application file.
-$allowedFiles = @('Midoo.exe','Uninstall.exe','LICENSE','NOTICE','THIRD_PARTY_NOTICES.md','README.md','README.en.md','Install-Desktop.cmd','Uninstall-Desktop.cmd','VERSION')
+$allowedFiles = @('Midoo.exe','Uninstall.exe','LICENSE','NOTICE','THIRD_PARTY_NOTICES.md','README.md','README.en.md','Install-Desktop.cmd','Uninstall-Desktop.cmd','VERSION','PRICE_TRACKING.md','PRODUCT_CLASSIFICATION.md','ENTERPRISE_KNOWLEDGE.md','STORE_IMPORT.md')
 $copies = [Collections.Generic.List[object]]::new()
 foreach ($name in $allowedFiles) {
     $source = Get-OrdinaryPath (Join-Path $packagePath $name) $packagePath
