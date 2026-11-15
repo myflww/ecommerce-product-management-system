@@ -8,6 +8,8 @@ The original application is licensed under [PolyForm Noncommercial 1.0.0](LICENS
 
 Full upstream license/notice texts are retained in [`third_party_licenses/`](third_party_licenses/). [`manifest.json`](third_party_licenses/manifest.json) records the installed package versions and the corresponding text files for the Windows packaging environment inspected on **2026-11-13**. This inventory includes packaging tools and selected transitive dependencies; their presence here does not mean every file of every package is embedded in the executable.
 
+Pygments 2.21.0 was additionally checked against the frozen Windows binary on 2026-11-15. Its unmodified upstream LICENSE and AUTHORS are included.
+
 The package metadata and its distributed license files are the primary evidence for the library labels in this inventory. Native libraries and vendored code may carry additional notices within the component's complete license/third-party notice files. Preserve those files when redistributing binaries, including modified builds.
 
 以下清单基于实际打包环境的包元数据及随包许可文本。版本变更、构建工具变更或新增本地库时，应重新核对清单和完整通知，不能仅复制许可证名称。
@@ -44,6 +46,7 @@ The package metadata and its distributed license files are the primary evidence 
 | pycparser | 3.12 | BSD-3-Clause | [Texts](third_party_licenses/pycparser/pycparser-3.12.dist-info/licenses/LICENSE) |
 | pydantic | 2.14.3 | MIT | [Texts](third_party_licenses/pydantic/pydantic-2.14.3.dist-info/licenses/LICENSE) |
 | pydantic_core | 2.50.4 | MIT | [Texts](third_party_licenses/pydantic-core/pydantic_core-2.50.4.dist-info/licenses/LICENSE) |
+| Pygments | 2.21.0 | BSD-2-Clause | [LICENSE](third_party_licenses/pygments/pygments-2.21.0.dist-info/licenses/LICENSE), [AUTHORS](third_party_licenses/pygments/pygments-2.21.0.dist-info/licenses/AUTHORS) |
 | pyinstaller | 6.22.3 | GPLv2-or-later with a special exception which allows to use PyInstaller to build and distribute non-free programs (including commercial ones) | [Texts](third_party_licenses/pyinstaller/pyinstaller-6.22.3.dist-info/licenses/COPYING.txt) |
 | pyinstaller-hooks-contrib | 2026.10 |  | [Texts](third_party_licenses/pyinstaller-hooks-contrib/pyinstaller_hooks_contrib-2026.10.dist-info/licenses/LICENSE) |
 | pypdf | 7.0.1 | BSD-3-Clause | [Texts](third_party_licenses/pypdf/pypdf-7.0.1.dist-info/licenses/LICENSE) |
