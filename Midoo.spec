@@ -17,6 +17,10 @@ resources = {
         'dinov2-small/model.onnx', 'dinov2-small/LICENSE.txt', 'dinov2-small/README.md',
         'dinov2-small/preprocessor_config.json', 'dinov2-small/provenance.json',
     },
+    'browser-extension': {
+        'manifest.json', 'popup.html', 'popup.css', 'popup.js',
+        'capture-core.js', 'collector.js', 'README.md', 'icon.svg',
+    },
 }
 bundle_datas = []
 for folder, allowed in resources.items():
@@ -26,6 +30,7 @@ for folder, allowed in resources.items():
 hiddenimports = []
 hiddenimports += collect_submodules('uvicorn')
 hiddenimports += ['playwright.sync_api']
+hiddenimports += ['page_capture_import', 'page_capture_package']
 hiddenimports += ['webview.platforms.winforms', 'webview.platforms.edgechromium']
 
 

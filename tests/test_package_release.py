@@ -1,7 +1,9 @@
 """Public archives accept exact sets and reject stale files without deleting them."""
 from __future__ import annotations
 
+import ast
 import importlib.util
+import io
 import json
 from pathlib import Path
 import sys
@@ -89,14 +91,23 @@ def test_release_output_extra_is_rejected_before_packaging_or_checksums(tree):
     assert not package.exists()
 
 
-def test_store_browser_profiles_cannot_enter_the_public_package(tree):
+@pytest.mark.parametrize('folder_name', ['browser-store-profiles', '.midoo-runtime'])
+def test_private_runtime_directories_cannot_enter_the_public_package(tree, folder_name):
     _, package, output = tree
-    private = package / 'browser-store-profiles'
+    private = package / folder_name
     private.mkdir(parents=True)
     (private / 'session.txt').write_text('synthetic private session', encoding='utf-8')
     with pytest.raises(RuntimeError, match='Private'):
         release.main()
     assert (private / 'session.txt').exists() and not list(output.glob('*.zip'))
+
+
+@pytest.mark.parametrize('name', ['Launch-Desktop.vbs', '.ecommerce-product-manager-install.json'])
+def test_generated_local_install_files_cannot_be_explicitly_allowlisted(tmp_path, name):
+    (tmp_path / name).write_text('synthetic local installation metadata', encoding='utf-8')
+    with pytest.raises(RuntimeError, match='Private'):
+        list(release.checked_files(tmp_path, {name}, require_complete=True))
+    assert (tmp_path / name).is_file()
 
 
 def test_model_directory_extra_is_rejected_before_any_archive_is_written(tree):
@@ -138,3 +149,29 @@ def test_unknown_file_cannot_damage_existing_archive(tmp_path):
     with pytest.raises(RuntimeError, match='Unexpected release file'):
         release.make_zip(folder, archive, {'README.md'})
     assert archive.read_bytes() == b'previous valid release fixture'
+
+
+def test_embedded_extension_and_download_share_public_allowlist(tmp_path):
+    import page_capture_package
+
+    spec = ast.parse((Path(__file__).resolve().parents[1] / 'Midoo.spec').read_text(encoding='utf-8'))
+    resources = next(ast.literal_eval(item.value) for item in spec.body
+                     if isinstance(item, ast.Assign) and
+                     any(isinstance(target, ast.Name) and target.id == 'resources' for target in item.targets))
+    allowed = resources['browser-extension']
+    assert allowed == page_capture_package.EXTENSION_FILES
+    folder = tmp_path / 'browser-extension'
+    folder.mkdir()
+    for name in allowed:
+        (folder / name).write_text('public source fixture', encoding='utf-8')
+    assert {relative.as_posix() for _, relative in release.checked_files(folder, allowed, require_complete=True)} == allowed
+
+    # Runtime downloads must not pick up captures accidentally stored nearby;
+    # the build gate must reject the contaminated resource tree altogether.
+    (folder / 'capture.json').write_text('{"private_fixture":true}', encoding='utf-8')
+    (folder / 'product-photo.png').write_bytes(b'private image fixture')
+    with zipfile.ZipFile(io.BytesIO(page_capture_package.extension_archive(tmp_path))) as archive:
+        assert set(archive.namelist()) == {'Midoo-Page-Capture/' + name for name in allowed}
+    with pytest.raises(RuntimeError, match='Unexpected release file'):
+        list(release.checked_files(folder, allowed, require_complete=True))
+    assert (folder / 'capture.json').is_file() and (folder / 'product-photo.png').is_file()

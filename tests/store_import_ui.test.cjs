@@ -24,6 +24,7 @@ function element(dataset={}) {
 function makeDialog() {
   const root=element(), notice=element(), work=element(), buttons=new Map();
   root.fields=[];root.url=element({siUrl:''});root.url.value='https://www.temu.com/mall.html?mall_id=700000000000003';root.url.root=root;
+  root.file=element({siFile:''});root.file.root=root;root.fileHelp=element({siFileHelp:''});
   let markup='';
   Object.defineProperty(work,'innerHTML',{get:()=>markup,set:html=>{
     markup=html;root.fields=[];
@@ -39,6 +40,8 @@ function makeDialog() {
     if(selector==='[data-si-work]')return work;
     if(selector==='[data-si-notice]')return notice;
     if(selector==='[data-si-url]')return root.url;
+    if(selector==='[data-si-file]')return root.file;
+    if(selector==='[data-si-file-help]')return root.fileHelp;
     const action=selector.match(/^\[data-si="(.*?)"\]$/)?.[1];
     if(action){if(!buttons.has(action)){const b=element({si:action});b.root=root;buttons.set(action,b);}return buttons.get(action);}
     return root.fields.find(f=>f.matches(selector))||null;
@@ -46,13 +49,15 @@ function makeDialog() {
   root.querySelectorAll=selector=>root.fields.filter(f=>f.matches(selector));
   root.contains=target=>target?.root===root;
   root.showModal=()=>{};root.work=work;root.notice=notice;
+  root.addEventListener=()=>{};
   return root;
 }
 function harness() {
   const listeners=new Map(),calls=[],events=[],timers=new Map(),dialogs=[];let timerId=0;
   const document={body:{append(){}},querySelector(){return null;},createElement(tag){const node=tag==='dialog'?makeDialog():element();if(tag==='dialog')dialogs.push(node);return node;},
     addEventListener(type,fn){if(!listeners.has(type))listeners.set(type,[]);listeners.get(type).push(fn);}};
-  const context=vm.createContext({console,URL,document,Map,Set,JSON,Number,String,Boolean,Array,Error,
+  class FakeFormData {constructor(){this.fields=new Map();}append(key,value){this.fields.set(key,value);}get(key){return this.fields.get(key);}}
+  const context=vm.createContext({console,URL,document,Map,Set,JSON,Number,String,Boolean,Array,Error,FormData:FakeFormData,
     CustomEvent:class{constructor(type,options={}){this.type=type;this.detail=options.detail;}},
     MutationObserver:class{observe(){}},queueMicrotask:fn=>fn(),
     setTimeout(fn,delay){const id=++timerId;timers.set(id,{fn,delay});return id;},clearTimeout:id=>timers.delete(id),
@@ -60,6 +65,7 @@ function harness() {
     fetch(){throw Error('Live fetch is forbidden in UI test');},calls});
   vm.runInContext(source,context);
   const run=code=>vm.runInContext(code,context);
+  run('const transportApi=api;');
   const dialog=makeDialog();context.testDialog=dialog;context.user=plain(permissionUser);context.draftSeed=preview();context.jobSeed=job();
   run('dialog=testDialog;currentUser=user;draft=draftSeed;job=jobSeed;choices=new Map(draft.items.map(i=>[i.id,{action:"new"}]));');
   const reply=async(url,options={})=>{calls.push({url,options:plain(options)});if(url==='/api/me')return {user:plain(permissionUser)};
@@ -68,6 +74,7 @@ function harness() {
   return {context,run,dialog,calls,events,timers,listeners,dialogs,
     setApi(fn){context.reply=fn;run('api=reply;');},
     async act(action,extra={}){const button=element({si:action,...extra});button.root=run('dialog');context.button=button;await run('act(button.dataset.si,button)');await tick();},
+    async importFile(file={name:'midoo-page-capture.json',size:1024}){context.testFile=file;await run('importCaptureFile(testFile,testDialog.file)');await tick();},
     change(field){for(const fn of listeners.get('change')||[])fn({target:field});},
     input(field){for(const fn of listeners.get('input')||[])fn({target:field});},
     dispatch(type,detail){for(const fn of listeners.get(type)||[])fn({detail});},
@@ -264,6 +271,128 @@ test('in-flight status from before an action cannot overwrite the action result'
 test('permission revocation closes dialog and drops locally cached source data',async()=>{
   const h=harness();h.dispatch('midoo:permissions-updated',{user:{id:'operator',permissions:[]}});
   assert.equal(h.run('dialog'),null);assert.equal(h.run('draft'),null);assert.equal(h.run('job'),null);
+});
+
+test('preferred file workflow explains installation and keeps dedicated browser secondary',async()=>{
+  const h=harness();h.run('dismiss();draft=null;job=null;');
+  await h.run('open()');const html=h.dialogs.at(-1).innerHTML;
+  assert.match(html,/浏览器插件采集（推荐）/);assert.match(html,/page-extension\.zip/);
+  assert.match(html,/开发者模式/);assert.match(html,/加载解压缩的扩展/);
+  assert.match(html,/页面已提供的信息/);assert.match(html,/SKU 和独立价格会保留为待补全/);
+  assert.match(html,/<details class="si-legacy-browser"[^>]*><summary>专用浏览器采集 · 试用/);
+  assert(html.indexOf('data-si-file')<html.indexOf('si-legacy-browser'));
+});
+
+test('multipart transport leaves FormData and browser content boundary intact',async()=>{
+  const h=harness();let seen;
+  h.context.fetch=async(url,options)=>{seen={url,options};return {ok:true,json:async()=>preview()};};
+  const result=await h.run('const uploadBody=new FormData();uploadBody.append("file",{name:"capture.json",size:30});transportApi(BASE+"/page-file",{method:"POST",body:uploadBody})');
+  assert.equal(result.id,'server-draft-id');assert.equal(seen.options.credentials,'same-origin');
+  assert.equal(seen.options.headers['Content-Type'],undefined,'Browser creates multipart boundary');
+  assert(seen.options.body instanceof h.context.FormData);
+  assert.equal(seen.options.body.get('file').name,'capture.json');
+});
+
+test('file import creates a preview only and preserves mapped merge choices',async()=>{
+  const h=harness();h.run('clearDraft();job=null;render();');
+  let uploaded;
+  h.setApi(async(url,options={})=>{h.calls.push({url,options});if(url.endsWith('/page-file')){uploaded=options.body;return preview([item('existing',{existing_product:product}),item('fresh')]);}return {};});
+  await h.importFile();
+  assert(uploaded instanceof h.context.FormData);assert.equal(uploaded.get('file').name,'midoo-page-capture.json');
+  assert.equal(h.run('draft.id'),'server-draft-id');assert.equal(h.run('job'),null);
+  assert.deepEqual(plain(h.run('choices.get("existing")')),{action:'merge',product_id:'target',expected_updated_at:'version-1'});
+  assert.equal(h.run('choices.get("fresh").action'),'new');
+  assert(!h.calls.some(c=>c.url.includes('/browser/')||c.url.endsWith('/commit')));
+  assert(!h.events.some(e=>e.type==='midoo:products-changed'));
+  assert.match(h.dialog.work.innerHTML,/midoo-page-capture\.json/);
+  assert.equal(h.dialog.file.disabled,true,'Review cannot be silently replaced');
+  assert.equal(h.run('working'),false);assert.equal(h.timers.size,0);
+});
+
+test('file import retains incomplete SKU warnings and never supplies manual base prices',async()=>{
+  const h=harness();h.run('clearDraft();job=null;');
+  h.setApi(async()=>preview([item('partial',{warnings:['店铺归属由你手动确认。','尚未取得可绑定具体子产品的完整规格，保留商品档案供补全。'],variants:[{id:'',spec:'规格尚未完整采集',price:'',currency:''}]})]));
+  await h.importFile();
+  assert.match(h.dialog.work.innerHTML,/规格尚未完整采集/);assert.match(h.dialog.work.innerHTML,/未采到独立报价/);
+  assert.match(h.dialog.work.innerHTML,/店铺归属由你手动确认/);
+  assert.equal(h.run('draft.items[0].variants[0].price'),'');
+});
+
+test('file summary makes partial captures and failed images visible before import',async()=>{
+  const h=harness();h.setDraft({...preview(),capture_summary:{pages:3,products:1,partial:1,image_failures:1,source:'browser_file'}});
+  assert.match(h.dialog.work.innerHTML,/从 3 个页面读取 1 款商品/);
+  assert.match(h.dialog.work.innerHTML,/1 款规格信息待补全/);
+  assert.match(h.dialog.work.innerHTML,/1 款主图下载失败，暂不能入库/);
+});
+
+test('unfinished preview and live dedicated job both block file replacement',async()=>{
+  const h=harness();await h.importFile();
+  assert(!h.calls.some(c=>c.url.endsWith('/page-file')||c.options.method==='DELETE'));
+  assert.equal(h.run('draft.id'),'server-draft-id');assert.match(h.dialog.notice.textContent,/先确认导入或放弃/);
+  h.run('clearDraft();job={id:"live-job",state:"ready",draft_id:""};render();');
+  assert.equal(h.dialog.file.disabled,true);await h.importFile();
+  assert(!h.calls.some(c=>c.url.endsWith('/page-file')));assert.match(h.dialog.notice.textContent,/先关闭专用采集窗口/);
+});
+
+test('empty oversized and non-JSON uploads fail before network or preview cleanup',async()=>{
+  for(const file of [{name:'capture.json',size:0},{name:'capture.json',size:8*1024*1024+1},{name:'capture.html',size:50}]){
+    const h=harness();h.run('draft.committed=true;job=null;render();');await h.importFile(file);
+    assert.equal(h.calls.length,0);assert.equal(h.run('draft.id'),'server-draft-id');
+    assert.equal(h.run('working'),false);assert.equal(h.dialog.file.value,'');assert(h.dialog.notice.textContent);
+  }
+});
+
+test('committed file batch can release and import another file without browser commands',async()=>{
+  const h=harness();h.run('draft.committed=true;captureFileName="first.json";job=null;render();');
+  assert.equal(h.dialog.file.disabled,false);assert.match(h.dialog.work.innerHTML,/继续选择下一份采集文件/);
+  h.setApi(async(url,options={})=>{h.calls.push({url,options});return url.endsWith('/page-file')?{...preview([item('next')]),id:'next-draft'}:{};});
+  await h.importFile({name:'second.json',size:100});
+  assert(h.calls[0].url.endsWith('/server-draft-id')&&h.calls[0].options.method==='DELETE');
+  assert(h.calls[1].url.endsWith('/page-file'));assert.equal(h.run('draft.id'),'next-draft');
+  assert.equal(h.run('captureFileName'),'second.json');assert(!h.calls.some(c=>c.url.includes('/browser/')));
+});
+
+test('late upload after dismissal releases its draft without altering a reopened preview',async()=>{
+  const h=harness();let resolve;h.run('clearDraft();job=null;');
+  h.setApi(async(url,options={})=>{h.calls.push({url,options});return url.endsWith('/page-file')?new Promise(r=>{resolve=r;}):{};});
+  const pending=h.importFile();await tick();assert(resolve);
+  h.run('dismiss();dialog=testDialog;draft={id:"new-draft",committed:false,items:[]};');
+  resolve({...preview(),id:'late-file-draft'});await pending;
+  assert.equal(h.run('draft.id'),'new-draft');assert.equal(h.run('captureFileName'),'');
+  assert(h.calls.some(c=>c.url.endsWith('/late-file-draft')&&c.options.method==='DELETE'));
+  assert(!h.events.some(e=>e.type==='midoo:products-changed'));
+});
+
+test('permission withdrawal during upload drops response and cleans its temporary draft',async()=>{
+  const h=harness();let resolve;h.run('clearDraft();job=null;');
+  h.setApi(async(url,options={})=>{h.calls.push({url,options});return url.endsWith('/page-file')?new Promise(r=>{resolve=r;}):{};});
+  const pending=h.importFile();await tick();assert(resolve);
+  h.dispatch('midoo:permissions-updated',{user:{id:'operator',permissions:[]}});
+  resolve({...preview(),id:'revoked-draft'});await pending;
+  assert.equal(h.run('dialog'),null);assert.equal(h.run('draft'),null);assert.equal(h.run('captureFileName'),'');
+  assert(h.calls.some(c=>c.url.endsWith('/revoked-draft')&&c.options.method==='DELETE'));
+});
+
+test('file permission denial does not leave the dialog busy or send a request',async()=>{
+  const h=harness();h.run('clearDraft();job=null;currentUser={id:"operator",permissions:[]};');
+  await h.importFile();assert.equal(h.calls.length,0);assert.equal(h.run('working'),false);
+  assert.match(h.dialog.notice.textContent,/没有批量导入权限/);
+});
+
+test('opening as a different member never retains the prior capture filename',async()=>{
+  const h=harness();h.run('captureFileName="private-member-file.json";dismiss();');
+  h.setApi(async()=>({user:{id:'other',permissions:['products.import']}}));
+  await h.run('open()');assert.equal(h.run('captureFileName'),'');assert.equal(h.run('draft'),null);
+  assert(!h.dialogs.at(-1).work.innerHTML.includes('private-member-file.json'));
+});
+
+test('old browser status cannot overwrite a file preview',async()=>{
+  const h=harness();let resolve;h.run('clearDraft();job={id:"closed-job",state:"closed",draft_id:""};');
+  h.setApi(async(url,options={})=>{h.calls.push({url,options});if(url.includes('/browser/'))return new Promise(r=>{resolve=r;});if(url.endsWith('/page-file'))return {...preview(),id:'file-draft'};return {};});
+  const pending=h.run('poll()');await tick();assert(resolve);
+  await h.importFile();resolve(job({state:'preview',draft_id:'stale-draft'}));await pending;
+  assert.equal(h.run('draft.id'),'file-draft');assert.equal(h.run('job'),null);
+  assert(!h.calls.some(c=>c.url.endsWith('/previews/stale-draft')));
 });
 
 (async()=>{

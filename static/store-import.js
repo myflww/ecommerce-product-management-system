@@ -1,6 +1,7 @@
 /* Frontend store collection and explicit, server-owned import previews. */
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const BASE = '/api/store-import';
+const MAX_CAPTURE_FILE = 8 * 1024 * 1024;
 const busyStates = new Set(['opening','discovering','collecting','closing']);
 const warningNames = {
   variants_missing:'尚未读到子产品规格', variant_prices_incomplete:'部分规格缺少独立报价',
@@ -14,11 +15,13 @@ let dialog = null, job = null, draft = null, timer = null, epoch = 0, working = 
 let choices = new Map(), candidates = new Set(), productOptions = new Map();
 let currentUser = null;
 let queries = new Map(), listedConfirmation = false, opening = false, pollVersion = 0;
+let captureFileName = '';
 
 async function api(path, options={}) {
+  const multipart=typeof FormData!=='undefined'&&options.body instanceof FormData;
   const response = await fetch(path, {credentials:'same-origin', ...options,
-    headers:{...(options.body?{'Content-Type':'application/json'}:{}),...options.headers},
-    ...(options.body?{body:JSON.stringify(options.body)}:{})});
+    headers:{...(options.body&&!multipart?{'Content-Type':'application/json'}:{}),...options.headers},
+    ...(options.body?{body:multipart?options.body:JSON.stringify(options.body)}:{})});
   const body = await response.json().catch(()=>({}));
   if (!response.ok) {const error=new Error(typeof body.detail==='string'?body.detail:'操作失败，请刷新后重试。');error.status=response.status;throw error;}
   return body;
@@ -38,7 +41,7 @@ function warnings(item) {
   return list.length?`<p class="si-warnings">${list.map(esc).join('；')}</p>`:'';
 }
 function statusLine() {
-  return `<div class="si-status" role="status"><span>${esc(job?.message||'填写自有店铺的前端链接，先读取预览，再决定入库。')}</span>${busyStates.has(job?.state)?'<span class="spinner"></span>':''}</div>`;
+  return `<div class="si-status" role="status"><span>${esc(captureFileName?`已读取 ${captureFileName}，请核对商品、店铺、规格和报价后再入库。`:job?.message||'在平时使用的浏览器打开商品或店铺，用插件采集后，在这里选择采集文件。')}</span>${busyStates.has(job?.state)?'<span class="spinner"></span>':''}</div>`;
 }
 function candidateList() {
   const items=job?.candidates||[];
@@ -54,8 +57,11 @@ function previewCard(item) {
 }
 function previewList() {
   if(!draft)return '';
-  if(draft.committed)return `<div class="si-complete"><h3>本批已入库</h3><p>新增 ${Number(draft.result?.created||0)} 款，关联 ${Number(draft.result?.merged||0)} 款，新增 ${Number(draft.result?.new_listings||0)} 条平台规格档案。</p><button class="button" data-si="next" ${!job||['closed','error'].includes(job.state)?'disabled':''}>继续下一批</button></div>`;
-  return `<section class="si-preview"><h3>核对后入库 · ${draft.items.length} 款</h3><p class="field-note">前端报价单独保存，原价格可后续填写。同款请手动选“并入已有商品”；重复采集同一来源不会重复新建。</p><div class="si-preview-grid">${draft.items.map(previewCard).join('')}</div><label class="si-listing-confirm"><input type="checkbox" data-si-listed ${listedConfirmation?'checked':''}> 我已核对本批新增规格，人工确认它们已上架</label><p class="field-note">未勾选时保存为待确认；已有档案的状态、人工原价和手填报价保留。</p><div class="si-preview-actions"><button class="button primary" data-si="commit" ${working?'disabled':''}>${working?'正在保存…':'确认导入本批'}</button><button class="button" data-si="discard" ${working?'disabled':''}>放弃本批预览</button></div></section>`;
+  if(draft.committed)return `<div class="si-complete"><h3>本批已入库</h3><p>新增 ${Number(draft.result?.created||0)} 款，关联 ${Number(draft.result?.merged||0)} 款，新增 ${Number(draft.result?.new_listings||0)} 条平台规格档案。</p>${captureFileName?'<p>可以继续选择下一份采集文件。</p>':`<button class="button" data-si="next" ${!job||['closed','error'].includes(job.state)?'disabled':''}>继续下一批</button>`}</div>`;
+  const summary=draft.capture_summary;
+  const count=value=>Number.isSafeInteger(value)&&value>0?value:0;
+  const captureSummary=summary?`<p class="si-capture-summary">从 ${count(summary.pages)} 个页面读取 ${draft.items.length} 款商品${count(summary.partial)?`；${count(summary.partial)} 款规格信息待补全`:''}${count(summary.image_failures)?`；${count(summary.image_failures)} 款主图下载失败，暂不能入库`:''}。请逐款核对下方提示。</p>`:'';
+  return `<section class="si-preview"><h3>核对后入库 · ${draft.items.length} 款</h3>${captureSummary}<p class="field-note">前端报价单独保存，原价格可后续填写。同款请手动选“并入已有商品”；重复采集同一来源不会重复新建。</p><div class="si-preview-grid">${draft.items.map(previewCard).join('')}</div><label class="si-listing-confirm"><input type="checkbox" data-si-listed ${listedConfirmation?'checked':''}> 我已核对本批新增规格，人工确认它们已上架</label><p class="field-note">未勾选时保存为待确认；已有档案的状态、人工原价和手填报价保留。</p><div class="si-preview-actions"><button class="button primary" data-si="commit" ${working?'disabled':''}>${working?'正在保存…':'确认导入本批'}</button><button class="button" data-si="discard" ${working?'disabled':''}>放弃本批预览</button></div></section>`;
 }
 function render() {
   if(!dialog)return;
@@ -65,6 +71,17 @@ function render() {
   dialog.querySelector('[data-si="read"]').disabled=working||Boolean(draft&&!draft.committed)||!job||busyStates.has(job.state)||['closed','error'].includes(job.state);
   dialog.querySelector('[data-si="start"]').disabled=working||Boolean(draft&&!draft.committed)||Boolean(job&&!['closed','error'].includes(job.state));
   dialog.querySelector('[data-si="stop"]').disabled=!job||['closed','error'].includes(job.state);
+  const fileInput=dialog.querySelector('[data-si-file]');
+  if(fileInput)fileInput.disabled=working||Boolean(draft&&!draft.committed)||Boolean(job&&!['closed','error'].includes(job.state));
+  const fileHelp=dialog.querySelector('[data-si-file-help]');
+  if(fileHelp)fileHelp.textContent=draft&&!draft.committed?'请先确认导入或放弃本批预览，再选择下一份文件。':job&&!['closed','error'].includes(job.state)?'请先关闭下方的专用采集窗口，再读取插件文件。':'选择插件导出的 .json 文件，每批最多 20 款、8 MB；这里只生成预览。';
+}
+function installDraft(value) {
+  draft=value;queries.clear();listedConfirmation=false;
+  choices=new Map(draft.items.map(i=>[i.id,i.existing_product?
+    {action:i.can_import?'merge':'skip',product_id:i.existing_product.id,expected_updated_at:i.existing_product.updated_at}:
+    {action:i.can_import&&allowed('products.create')?'new':'skip'}]));
+  productOptions=new Map(draft.items.filter(i=>i.existing_product).map(i=>[i.id,[i.existing_product]]));
 }
 async function poll() {
   clearTimeout(timer);
@@ -81,12 +98,8 @@ async function poll() {
       const draftId=job.draft_id;
       const fetched=await api(`${BASE}/previews/${encodeURIComponent(draftId)}`);
       if(e!==epoch||v!==pollVersion||!dialog||job?.id!==id||job.draft_id!==draftId)return;
-      draft=fetched;queries.clear();listedConfirmation=false;
+      installDraft(fetched);captureFileName='';
       changed=true;
-      choices=new Map(draft.items.map(i=>[i.id,i.existing_product?
-        {action:i.can_import?'merge':'skip',product_id:i.existing_product.id,expected_updated_at:i.existing_product.updated_at}:
-        {action:i.can_import&&allowed('products.create')?'new':'skip'}]));
-      productOptions=new Map(draft.items.filter(i=>i.existing_product).map(i=>[i.id,[i.existing_product]]));
     }
     if(changed)render();
   } catch(error){
@@ -105,12 +118,12 @@ async function open() {
   let me;
   try {me=(await api('/api/me')).user;} finally {if(e===epoch)opening=false;}
   if(e!==epoch||dialog)return;
-  if(currentUser&&currentUser.id!==me?.id){job=null;draft=null;choices.clear();candidates.clear();productOptions.clear();queries.clear();listedConfirmation=false;}
+  if(currentUser&&currentUser.id!==me?.id){job=null;clearDraft();candidates.clear();}
   currentUser=me;
   if(!allowed('products.import'))throw new Error('当前账号没有批量导入权限。');
   for(const [id,c] of choices)if(c.action==='new'&&!allowed('products.create'))choices.set(id,{action:'skip'});
   dialog=document.createElement('dialog');dialog.className='store-import-dialog';
-  dialog.innerHTML=`<header><div><h2>从店铺前端导入 · 试用</h2><p>主图、名称、子产品规格、各自价格与前端链接</p></div><button class="icon-button" data-si="dismiss" aria-label="关闭店铺导入">×</button></header><div class="si-body"><p class="notice amber">此功能仍在验证真实 Temu 登录与规格采集，暂不保证能完成采集。若登录后反复回跳，请关闭采集窗口，继续使用图片批量入库，无需反复注册。</p><form data-si-form><label>Temu 店铺链接<input type="url" data-si-url placeholder="https://www.temu.com/mall.html?mall_id=…" required value="${esc(job?.store_url||'')}"></label><button class="button primary" data-si="start">打开专用浏览器</button></form><p class="field-note">首次在专用窗口正常登录。采集只在你点击后运行；每批最多 20 款。登录与验证码由你操作，平台仍可能要求重新验证。</p><div class="si-browser-actions"><button class="button" data-si="read">读取店铺</button><button class="button" data-si="stop">关闭采集窗口</button></div><p data-si-notice role="status"></p><div data-si-work></div></div>`;
+  dialog.innerHTML=`<header><div><h2>从浏览器页面导入</h2><p>主图、名称、页面已提供的规格与价格、前端链接</p></div><button class="icon-button" data-si="dismiss" aria-label="关闭店铺导入">×</button></header><div class="si-body"><section class="si-page-capture" aria-labelledby="si-page-capture-title"><div class="si-capture-heading"><h3 id="si-page-capture-title">浏览器插件采集（推荐）</h3><a class="button sm" href="${BASE}/page-extension.zip" download>下载浏览器插件</a></div><p>直接使用你平时已登录的 Edge 或 Chrome。正常打开 Temu 商品或店铺，确认页面能看到商品后再点插件采集，无需另开登录窗口。</p><ol class="si-capture-steps"><li>首次安装：解压插件，在浏览器“扩展”页面开启开发者模式，选择“加载解压缩的扩展”，选中插件目录。</li><li>打开目标页面，点击插件采集；可手动切换多个商品页面，最后导出采集文件。</li><li>在这里选择文件，核对预览；同款可并入已有商品，确认后才会入库。</li></ol><p class="notice amber si-capture-limit">当前支持 Temu。仅采集页面已提供的信息；店铺页通常只提供商品概览，缺少的 SKU 和独立价格会保留为待补全。空白、登录或验证页面需要先由你正常处理，插件不会自动解锁内容。</p><label class="si-file-label">选择插件采集文件<input type="file" data-si-file accept=".json,application/json" aria-describedby="si-file-help"></label><p class="field-note" id="si-file-help" data-si-file-help></p></section><details class="si-legacy-browser" ${job&&!['closed','error'].includes(job.state)?'open':''}><summary>专用浏览器采集 · 试用</summary><p class="notice amber">此方式仍在验证真实 Temu 登录与规格采集，暂不保证能完成采集。若登录后反复回跳，请关闭采集窗口，改用上方插件采集，无需反复注册。</p><form data-si-form><label>Temu 店铺链接<input type="url" data-si-url placeholder="https://www.temu.com/mall.html?mall_id=…" required value="${esc(job?.store_url||'')}"></label><button class="button" data-si="start">打开专用浏览器</button></form><p class="field-note">每批最多 20 款，采集只在点击后运行。登录与验证码由你正常操作，平台仍可能要求重新验证。</p><div class="si-browser-actions"><button class="button" data-si="read">读取店铺</button><button class="button" data-si="stop">关闭采集窗口</button></div></details><p data-si-notice role="status" aria-live="polite"></p><div data-si-work></div></div>`;
   document.body.append(dialog);dialog.showModal();
   dialog.addEventListener('cancel',event=>{event.preventDefault();dismiss();});
   dialog.addEventListener('submit',event=>event.preventDefault());
@@ -119,7 +132,34 @@ async function open() {
   poll();
 }
 function clearDraft() {
-  draft=null;choices.clear();productOptions.clear();queries.clear();listedConfirmation=false;
+  draft=null;choices.clear();productOptions.clear();queries.clear();listedConfirmation=false;captureFileName='';
+}
+async function importCaptureFile(file,input) {
+  if(!file||!dialog||working)return;
+  if(!allowed('products.import')){note('当前账号没有批量导入权限。',true);if(input)input.value='';return;}
+  const e=epoch,root=dialog,userId=currentUser?.id;
+  const valid=()=>e===epoch&&dialog===root&&currentUser?.id===userId&&allowed('products.import');
+  working=true;clearTimeout(timer);pollVersion++;
+  try {
+    if(draft&&!draft.committed)throw new Error('请先确认导入或放弃本批预览，再选择下一份采集文件。');
+    if(job&&!['closed','error'].includes(job.state))throw new Error('请先关闭专用采集窗口，再读取插件文件。');
+    if(!/\.json$/i.test(file.name||''))throw new Error('请选择插件导出的 .json 采集文件。');
+    if(!file.size||file.size>MAX_CAPTURE_FILE)throw new Error('采集文件不能为空，且不能超过 8 MB；请在插件中拆批导出。');
+    render();note('正在读取采集文件和主图，请稍候…');
+    if(draft){await releaseDraft(draft.id);if(!valid())return;clearDraft();}
+    const body=new FormData();body.append('file',file);
+    const captured=await api(`${BASE}/page-file`,{method:'POST',body});
+    if(!valid()){
+      if(captured?.id)releaseDraft(captured.id).catch(()=>{});
+      return;
+    }
+    job=null;candidates.clear();installDraft(captured);captureFileName=file.name;
+    note('已读取采集文件，请核对平台、店铺、规格和报价；确认导入后才会保存。');
+  } catch(error){if(valid())note(error.message,true);}
+  finally {
+    if(input)input.value='';
+    if(valid()){working=false;render();poll();}
+  }
 }
 async function releaseDraft(id) {
   try {return await api(`${BASE}/previews/${encodeURIComponent(id)}`,{method:'DELETE'});}
@@ -214,6 +254,7 @@ document.addEventListener('click',event=>{
 document.addEventListener('change',event=>{
   if(!dialog?.contains(event.target))return;
   const el=event.target;
+  if(el.matches('[data-si-file]')){importCaptureFile(el.files?.[0],el);return;}
   if(el.matches('[data-si-candidate]')){el.checked?candidates.add(el.dataset.siCandidate):candidates.delete(el.dataset.siCandidate);render();}
   if(el.matches('[data-si-all]')){candidates=new Set(el.checked?job.candidates.map(i=>i.product_id):[]);render();}
   if(el.matches('[data-si-choice]')){
@@ -250,7 +291,7 @@ function mount() {
     const host=document.querySelector('.import-choices');
     if(host&&!host.querySelector('[data-store-import]')) {
       const button=document.createElement('button');button.type='button';button.className='panel import-choice';button.dataset.storeImport='';
-      button.innerHTML='<span class="choice-icon">↧</span><div><h3>从店铺前端导入 · 试用</h3><p>读取主图、名称、规格与前端价格<br>真实平台采集仍在验证</p></div><span>→</span>';
+      button.innerHTML='<span class="choice-icon">↧</span><div><h3>从浏览器页面导入</h3><p>用插件采集已打开的商品或店铺<br>核对后入库，可并入已有同款</p></div><span>→</span>';
       host.append(button);
     }
   });

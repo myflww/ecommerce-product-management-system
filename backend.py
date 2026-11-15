@@ -43,7 +43,7 @@ try:
 except ImportError:
     fast_compare_features = compare_features
 
-VERSION = "1.7.0"
+VERSION = "1.8.0"
 DATA_DIR: Path | None = None
 DB_PATH: Path | None = None
 COOKIE_NAME = "midoo_session"

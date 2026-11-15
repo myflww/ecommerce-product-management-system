@@ -33,7 +33,7 @@ import store_import_storage
 import store_import_engine
 import store_import_routes
 
-VERSION = "1.7.0"
+VERSION = "1.8.0"
 ROOT = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
 USER_ROOT = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else ROOT
 DATA_DIR = Path(os.environ.get("MIDOO_DATA_DIR", str(USER_ROOT / "data"))).resolve()

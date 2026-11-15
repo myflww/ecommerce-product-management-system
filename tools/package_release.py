@@ -15,15 +15,18 @@ ROOT = Path(__file__).resolve().parents[1]
 VERSION = (ROOT / 'VERSION').read_text().strip()
 FILES = ('LICENSE', 'NOTICE', 'THIRD_PARTY_NOTICES.md', 'README.md', 'README.en.md',
          'VERSION', 'Install-Desktop.cmd', 'Uninstall-Desktop.cmd', 'PRICE_TRACKING.md',
-         'PRODUCT_CLASSIFICATION.md', 'ENTERPRISE_KNOWLEDGE.md', 'STORE_IMPORT.md')
+         'PRODUCT_CLASSIFICATION.md', 'ENTERPRISE_KNOWLEDGE.md', 'STORE_IMPORT.md',
+         'PAGE_CAPTURE_EXTENSION.md')
 INSTALL_SCRIPTS = ('Install-Desktop.ps1', 'Uninstall-Desktop.ps1')
 MODEL_FILES = frozenset({'LICENSE.txt', 'README.md', 'model.onnx',
                          'preprocessor_config.json', 'provenance.json'})
 LICENSE_EXTRAS = frozenset({'manifest.json', 'python/LICENSE.txt', 'tcl/license.terms',
                             'tk/license.terms', 'dinov2-small/LICENSE.txt'})
 FORBIDDEN = {'data', 'qa-data', '.work', '.git', '.venv', '__pycache__',
-             'desktop-webview', 'browser-price-profiles', 'browser-store-profiles', 'backups'}
-PRIVATE_NAMES = {'desktop-config.json', 'ai-config.json', '.ai-vault-key'}
+             'desktop-webview', 'browser-price-profiles', 'browser-store-profiles',
+             '.midoo-runtime', 'backups'}
+PRIVATE_NAMES = {'desktop-config.json', 'ai-config.json', '.ai-vault-key',
+                 'launch-desktop.vbs', '.ecommerce-product-manager-install.json'}
 
 
 def _reject_links(path: Path) -> None:

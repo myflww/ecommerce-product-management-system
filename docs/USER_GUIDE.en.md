@@ -1,6 +1,7 @@
 # E-commerce Product Management System User Guide
 
-Applies to version 1.7.0 (Midoo for Windows)
+
+Applies to version 1.8.0 (Midoo for Windows)
 
 [简体中文](USER_GUIDE.zh-CN.md) · [Project home](../README.en.md) · [License](../LICENSE)
 
@@ -15,16 +16,17 @@ This guide is for users whose use is permitted by the license. Source is public,
 5. [Categories and operational queues](#categories-and-operational-queues)
 6. [Platforms and SKC / SKU variants](#platforms-and-skc--sku-variants)
 7. [Store filters and persistent product merges](#store-filters-and-persistent-product-merges)
-8. [Trial storefront import](#trial-storefront-import)
-9. [Local image duplicate search](#local-image-duplicate-search)
-10. [Prices and browser-assisted collection](#prices-and-browser-assisted-collection)
-11. [Company announcements](#company-announcements)
-12. [AI services and attachments](#ai-services-and-attachments)
-13. [Activity, Trash, and permissions](#activity-trash-and-permissions)
-14. [Backup, recovery, and migration](#backup-recovery-and-migration)
-15. [Run and build from source](#run-and-build-from-source)
-16. [Troubleshooting](#troubleshooting)
-17. [Privacy, license, and reporting](#privacy-license-and-reporting)
+8. [Current-page capture extension](#current-page-capture-extension)
+9. [Trial storefront import](#trial-storefront-import)
+10. [Local image duplicate search](#local-image-duplicate-search)
+11. [Prices and browser-assisted collection](#prices-and-browser-assisted-collection)
+12. [Company announcements](#company-announcements)
+13. [AI services and attachments](#ai-services-and-attachments)
+14. [Activity, Trash, and permissions](#activity-trash-and-permissions)
+15. [Backup, recovery, and migration](#backup-recovery-and-migration)
+16. [Run and build from source](#run-and-build-from-source)
+17. [Troubleshooting](#troubleshooting)
+18. [Privacy, license, and reporting](#privacy-license-and-reporting)
 
 Enterprise knowledge, immutable versions, and the map are covered under [Persistent company knowledge and chat modes](#persistent-company-knowledge-and-chat-modes) and [Knowledge nebula](#knowledge-nebula).
 
@@ -46,35 +48,55 @@ Use `Midoo.exe --service-manager` for the compatible service manager. It shows s
 
 ### First installation
 
-1. Download `EcommerceProductManager-Setup-1.7.0.exe` from [Releases](https://github.com/myflww/ecommerce-product-management-system/releases).
+1. Download `EcommerceProductManager-Setup-1.8.0.exe` from [Releases](https://github.com/myflww/ecommerce-product-management-system/releases).
 2. Run Setup and confirm installation in its standard window. No PowerShell execution-policy change is needed.
 3. Installation is per-user under `%LOCALAPPDATA%\Programs\EcommerceProductManager`, without administrator rights.
 4. Open **电商产品管理系统** from the desktop or Start menu.
 
-The package contains no publisher's business library, account, or API key. An independent first run creates your own empty library and does not scan private folders. Alternatively, download `EcommerceProductManager-1.7.0-Windows.zip`, extract all files, and run `Midoo.exe` as a portable application. Do not run it from an archive preview. The ZIP's `Install-Desktop.cmd` and `tools/Install-Desktop.ps1` provide a fallback installation method where scripts are allowed.
+The package contains no publisher's business library, account, or API key. An independent first run creates your own empty library and does not scan private folders. Alternatively, download `EcommerceProductManager-1.8.0-Windows.zip`, extract all files, and run `Midoo.exe` as a portable application. Do not run it from an archive preview. The ZIP's `Install-Desktop.cmd` and `tools/Install-Desktop.ps1` provide a fallback installation method where scripts are allowed.
 
 ### Use an existing library
 
 Do not re-import a library or substitute an empty folder. Back up first, then explicitly select its existing path, for example:
 
 ```powershell
-.\EcommerceProductManager-Setup-1.7.0.exe --install --data-dir "D:\Midoo\data"
+.\EcommerceProductManager-Setup-1.8.0.exe --install --data-dir "D:\Midoo\data"
 ```
 
 The generated `desktop-config.json` is machine-local data-location configuration, not a file to publish. A startup argument such as `Midoo.exe --data-dir "D:\Midoo\data"` overrides that configuration, and `MIDOO_DATA_DIR` has highest priority. The authoritative location is shown under **设置与备份 → 局域网与备份** (Settings and backup → LAN and backup).
+
+### Runtime directory and temporary-drive space
+
+Both native Setup and the fallback PowerShell installer generate an installer-managed `Launch-Desktop.vbs`. Desktop / Start menu application shortcuts, the first launch after installation, and the Start menu Uninstall entry explicitly invoke Windows Script Host to run it before starting the application or uninstaller. The launcher configures process environment and points `TEMP` / `TMP` at the selected directory only for this software launch; parent-process, user, and system environment variables do not change.
+
+The default is `.midoo-runtime` under the parent of the final selected data directory. For `D:\Midoo\data`, it is `D:\Midoo\.midoo-runtime`. An update preserves the runtime location recorded in the installation marker. To select another location, supply `--runtime-dir` during installation. This example assumes the existing data directory is present:
+
+```powershell
+.\EcommerceProductManager-Setup-1.8.0.exe --install --data-dir "D:\Midoo\data" --runtime-dir "D:\Midoo\.midoo-runtime"
+```
+
+Where PowerShell scripts are permitted, the fallback installer in the fully extracted release also accepts `-RuntimeDir`:
+
+```powershell
+powershell -NoProfile -File .\tools\Install-Desktop.ps1 -DataDir "D:\Midoo\data" -RuntimeDir "D:\Midoo\.midoo-runtime"
+```
+
+Choose an ordinary directory with free space and current-user write access, separate from product data. Uninstalling retains data and the runtime directory without clearing their contents.
+
+This helps installed launches when C: is low on space and data lives on another drive. **Setup itself, a directly opened `Midoo.exe`, and a directly opened `Uninstall.exe` remain PyInstaller single-file programs that extract into their inherited temporary directory before running. `--runtime-dir` cannot change Setup's own extraction, which has already begun.** Those entry points still require enough temporary-drive space; this does not solve every full-C: scenario. If an organization disables Windows Script Host, these shortcuts cannot be guaranteed to run. Contact its administrator or use an existing permitted entry point.
 
 ### Update
 
 1. Export a complete backup from the old version and keep another copy on a different device.
 2. Normally close the old application and the service whose executable will be replaced. Closing a browser tab does not necessarily stop a service. A desktop window connected to someone else's running service does not stop that process when closed.
-3. Run the new Setup to update application files, retaining the existing `data` folder and local data-location configuration. Portable users should extract the new version while explicitly keeping their old library.
+3. Run the new Setup to update application files, retaining the existing `data` folder, local data-location configuration, and the runtime location recorded in the installation marker. Portable users should extract the new version while explicitly keeping their old library.
 4. Start the updated app and verify its version, product count, images, SKUs, baseline prices, and current prices. Until index preparation finishes, do not treat a missing search result as evidence that no duplicate exists.
 
 Do not overwrite an active database manually. Keep release files distinct from your saved data. If files are in use, normally close the relevant service before updating rather than forcing an overwrite.
 
 ### Uninstall
 
-Normally close the installed application, then select Uninstall in the Start menu's Ecommerce Product Manager folder, or run `Uninstall.exe` from the installation directory and confirm in its native window. It removes the current user's application files and matching shortcuts while retaining product data. An externally selected library is not deleted as an installation file. Export a backup and record the actual data path before uninstalling.
+Normally close the installed application, then prefer Uninstall in the Start menu's Ecommerce Product Manager folder to use the configured runtime directory through the managed launcher. Confirm in the native uninstall window. You can also run `Uninstall.exe` directly from the installation directory, but its initial extraction still needs space on the inherited temporary drive. It removes the current user's application files and matching shortcuts while retaining product data and the runtime directory. An externally selected library is not deleted as an installation file. Export a backup and record the actual data path before uninstalling.
 
 The command-line form is `Uninstall.exe --uninstall`. `Uninstall-Desktop.cmd` / `tools/Uninstall-Desktop.ps1` remain fallback entry points where scripts are allowed. Without a matching installation marker, the uninstaller does not scan for or remove unrelated programs.
 
@@ -153,9 +175,42 @@ Undo requires merge and product-edit permission plus source-restore rights. Know
 
 Merged sources cannot be individually restored through ordinary Trash. An active merge’s main and source products cannot be permanently purged. A product linked to knowledge, including inactive documents, also requires explicit unlinking by a knowledge maintainer before the owner can purge it. See [STORE_IMPORT.md](../STORE_IMPORT.md), the bundled Chinese technical reference.
 
+## Current-page capture extension
+
+Version 1.8 includes an unpacked local Edge / Chrome extension for **Temu** product detail and store pages. First open and view the page normally in your everyday signed-in browser, then click to read it. The extension uses the current page without opening another sign-in environment. It does not repair dedicated-browser sign-in redirects. This version is not published in an extension store.
+
+### Load it manually
+
+Download the extension ZIP from the software's product-import interface and extract it completely. The public archive contains exactly eight code / documentation files: `manifest.json`, `popup.html`, `popup.css`, `popup.js`, `capture-core.js`, `collector.js`, `README.md`, and `icon.svg`. It contains no real pages, product images, login data, or samples.
+
+- **Edge:** open extension management (`edge://extensions`), enable Developer mode, choose **Load unpacked**, and select the extracted directory containing `manifest.json`. See [Microsoft's official sideloading steps](https://learn.microsoft.com/en-us/microsoft-edge/extensions/getting-started/extension-sideloading).
+- **Chrome:** open `chrome://extensions`, enable Developer mode, choose **Load unpacked**, and select that directory. See [Chrome's official local-loading steps](https://developer.chrome.com/docs/extensions/get-started/tutorial/hello-world).
+
+Refresh the target product page after loading or reloading the extension. You may pin the extension to the toolbar. If organizational policy blocks Developer mode or unpacked extensions, contact the administrator; these manual steps do not guarantee a way around that policy.
+
+### Capture, export, and review the import
+
+1. Open the target Temu product or store in everyday Edge / Chrome. Check that the product, region, and price display normally; handle blank, sign-in, or verification pages yourself first.
+2. Use the extension to read the current page, check the store link and name, and manually confirm the product belongs to that store before adding it to the local queue. A confirmation checkbox cannot override contradictory store evidence on the page.
+3. To add products, manually open other pages and read them. There is no background pagination or whole-store traversal. A batch allows up to 20 pages and 20 products. Reading the same product replaces its previous queued record; a detail page can replace its store-overview card. Multiple reads do not establish complete variant coverage.
+4. Export a local JSON file, up to 8 MiB. Select it in the software's product-import interface to generate a preview. Reading, queueing, and exporting do not directly write to the catalog.
+5. Check main images, names, store attribution, links, variants, and their individual quotes / currencies in the software preview. Choose a new product, an existing merge target, or skip, then explicitly confirm. File previews require `products.import`; creation also needs `products.create`, and merging needs target-edit permission. Listing state still requires an explicit human choice.
+
+A store page reads up to 400 distinct, currently loaded product cards before recommendations. Select groups of 20, with at most 20 products in one batch. This is not the whole store. Open detail pages individually to collect variants. A detail page may also omit independent SKUs, currencies, or quotes. Missing fields remain incomplete. Starting prices or a selected variant's price are not distributed across every variant; public product / variant IDs are not merchant SKC / SKU.
+
+During import, the software separately downloads and checks main images from their URLs to build local previews. Failed image downloads are reported and are not successful imports. Existing provenance checks, preview confirmation, and create / merge permissions apply; existing human prices, metadata, and states are not overwritten. Clearing the extension queue removes only pending exports, not downloaded JSON or software products. Export anything needed before uninstalling the extension.
+
+### Permissions, privacy, and verification limits
+
+The extension requests only `activeTab`, `scripting`, and `storage`. Page-reading code runs on the current page only after a user action. It does not read cookies, passwords, account inputs, browsing history, or the merchant page's web storage; connect to the local API; or transmit captured content to external servers. Its own local storage holds the pending queue. Inline page data is first reduced in the browser to an allowlist of public product fields; original DOM and complete account / page-data trees do not enter the queue or export.
+
+Capture JSON, real page DOM, product images, and samples are private local working data. Do not upload them to GitHub or include them in public extension / application packages. Existing application backups do not preserve the browser extension queue or downloaded files; manage retained exports separately.
+
+**Live Temu coverage of every SKU and independent quote, and end-to-end behavior after page changes, remain unverified. Synthetic offline pages and VM tests establish software behavior only, not successful live Temu sign-in, whole-store capture, or complete-variant collection.** See [PAGE_CAPTURE_EXTENSION.md](../PAGE_CAPTURE_EXTENSION.md) for data boundaries.
+
 ## Trial storefront import
 
-**批量入库 → 从店铺前端导入 · 试用** (Batch import → Storefront import · Trial) currently supports **Temu only and is experimental**. Real dedicated-browser sign-in has encountered redirect loops. Successful authenticated main-image and complete-variant collection has not passed live acceptance. Full-store extraction, all-variant coverage, and success are not guaranteed. Browser / driver availability only means runtime components are ready. The capability endpoint separately reports `experimental=true`, `live_capture_verified=false`, and limitations.
+The dedicated-browser collection branch retained in the product-import interface currently supports **Temu only and is experimental**. Real dedicated-browser sign-in has encountered redirect loops. Successful authenticated main-image and complete-variant collection has not passed live acceptance. Full-store extraction, all-variant coverage, and success are not guaranteed. Browser / driver availability only means runtime components are ready. The capability endpoint separately reports `experimental=true`, `live_capture_verified=false`, and limitations.
 
 1. A member with `products.import` enters a Temu storefront URL locally on the software host and selects **打开专用浏览器** (Open dedicated browser).
 2. Sign in normally, choose the region, and complete required verification personally. Explicitly select **读取店铺** (Read store). The feature does not bypass verification or read everyday browser profiles.
@@ -167,7 +222,7 @@ Public product / variant IDs remain separate from merchant SKC / SKU. Missing st
 
 Platform, store, site, public product, and variant provenance identify repeated sources. Recollection does not overwrite existing manual baselines, current quotes, metadata, or listing states. Main images are downloaded safely, checked, and indexed locally. Previews belong to the current login session, expire after about 30 minutes, and have count / memory limits. A successful commit releases preview image memory.
 
-If sign-in repeatedly redirects, close collection and continue with ordinary image batch import; repeated registration is unnecessary. Multi-platform SKUs, manual current prices, and existing browser-assisted collection remain independently usable. Import-specific `browser-store-profiles` stays local, does not copy everyday cookies, and is excluded from ordinary backups, GitHub, and public packages. Real page behavior, sign-in, and variant completeness remain unverified boundaries. See [STORE_IMPORT.md](../STORE_IMPORT.md).
+If sign-in repeatedly redirects, close collection and use the current-page extension where the everyday browser displays the page, or continue with ordinary image batch import; repeated registration is unnecessary. Multi-platform SKUs, manual current prices, and existing browser-assisted collection remain independently usable. Import-specific `browser-store-profiles` stays local, does not copy everyday cookies, and is excluded from ordinary backups, GitHub, and public packages. Real page behavior, sign-in, and variant completeness remain unverified boundaries. See [STORE_IMPORT.md](../STORE_IMPORT.md).
 
 ## Local image duplicate search
 
@@ -333,7 +388,7 @@ To recover:
 4. Sign in with an account from that backup and check counts, originals, categories, SKUs, price history, ownership, member permissions, knowledge text / versions / links, announcements / attachments / read marks, and merge journals.
 5. On a different computer or Windows account, reconfigure AI keys. Dedicated shop profiles do not migrate through these backups; sign in normally again.
 
-Never upload any original imported images, announcement images / attachments, company knowledge, QA images, storefront samples, backups, databases, encrypted API configuration, or browser profiles to a public repository. Public source and distribution packages exclude these records. Encrypted configuration is still private internal data.
+Never upload any original imported images, announcement images / attachments, company knowledge, QA images, storefront samples, real page DOM, exported capture JSON, backups, databases, cookies, encrypted API configuration, or browser profiles to a public repository. Public source and distribution packages exclude these records. Encrypted configuration is still private internal data.
 
 ## Run and build from source
 
@@ -364,7 +419,7 @@ Get-ChildItem tests\*_ui_smoke.cjs | ForEach-Object { node $_.FullName }
 powershell -NoProfile -File .\tools\build_windows.ps1
 ```
 
-The build script checks the model checksum and uses `Midoo.spec` to create `dist/windows/Midoo.exe`. The planned 1.7.0 asset directory is `dist/release/1.7.0/`; the final release manifest controls. `ENTERPRISE_KNOWLEDGE.md` and `STORE_IMPORT.md` will be bundled. Frontend checks require Node.js; normal packaged use does not. Validate the final executable against a separate temporary library. A public archive contains application files, required model assets, and documentation—not working data. Do not rely on `.gitignore` as the only release-privacy check.
+The build script checks the model checksum and uses `Midoo.spec` to create `dist/windows/Midoo.exe`. The planned 1.8.0 asset directory is `dist/release/1.8.0/`; the final release manifest controls. `ENTERPRISE_KNOWLEDGE.md`, `STORE_IMPORT.md`, and `PAGE_CAPTURE_EXTENSION.md` will be bundled. Frontend checks require Node.js; normal packaged use does not. Validate the final executable against a separate temporary library. A public archive contains application files, required model assets, and documentation—not working data. Do not rely on `.gitignore` as the only release-privacy check.
 
 ## Troubleshooting
 
@@ -374,7 +429,11 @@ The build script checks the model checksum and uses `Midoo.spec` to create `dist
 | Knowledge edit / history controls are missing | Employees remain read-only; administrators also need document-maintenance capabilities, regardless of legacy creator status |
 | A saved notice still shows its old content | Draft saves preserve the public snapshot; a user with publication permission must publish the update |
 | A merge cannot be undone or its source restored | Review later product / quote / knowledge changes and restoration permission; use Recent merges without bypassing conflicts |
-| Temu sign-in keeps redirecting | Live sign-in / complete-variant acceptance remains unresolved; close collection and use image import without repeated registration |
+| Temu sign-in keeps redirecting | Close dedicated collection; manually use the extension if the everyday browser displays the page, or use image import. Live all-SKU coverage remains unverified; repeated registration is unnecessary |
+| Exporting from the extension adds no software products | Export only creates a local file; review and confirm its import in the software. Check store attribution, main images, and file limits |
+| Extension capture lacks SKUs or prices | Store overviews and detail pages may be incomplete; manually capture details and review rather than copying one selected price to other variants |
+| C: is low on space and an installed shortcut fails | Check free space and write access at the configured runtime location; Setup / direct EXE initial extraction still needs inherited temporary-drive space |
+| Organizational policy disables Windows Script Host or local extensions | Contact the administrator or use an existing permitted entry point; runtime settings and manual loading do not guarantee a policy bypass |
 | Desktop window cannot start | Check WebView2 and try the compatible service manager; obtain runtimes from official sources |
 | A new installation shows an empty library | Check its displayed data path; do not re-import over the old library; select it with `--data-dir` |
 | Host works but teammates cannot connect | Check the shared network, host uptime, correct IP / port, and company firewall policy |

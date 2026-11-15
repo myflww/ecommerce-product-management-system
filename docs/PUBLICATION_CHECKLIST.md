@@ -11,6 +11,7 @@ This checklist describes the files that may be published. It is not a dump of a 
 - Synthetic unit/UI tests and test-only servers that use temporary databases and mock APIs.
 - Requirements, build/install scripts, source model metadata, pinned model download/checksum instructions, and original third-party license files.
 - Chinese/English README and user guides; `LICENSE`, `NOTICE`, `THIRD_PARTY_NOTICES.md`, and `third_party_licenses/`.
+- Only the eight reviewed files under `browser-extension/`: `manifest.json`, `popup.html`, `popup.css`, `popup.js`, `capture-core.js`, `collector.js`, `README.md`, and the original decorative `icon.svg`. Embedded resources and the extension download must use that exact public list.
 
 ## Exclude / 必须排除
 
@@ -21,6 +22,8 @@ This checklist describes the files that may be published. It is not a dump of a 
 - Real merchant product identifiers and tracking URLs in test fixtures; substitute consistent synthetic identifiers before publishing. Do not change the assertions' behavior while anonymizing.
 - `tests/test_real_product_regression.py`: a private-corpus regression tied to a local company's images and internal identifiers; omit it from the public test set.
 - Manually launched UI fixture servers unless they require an explicitly isolated test data directory. A test server must not silently reuse an existing application's default data directory.
+- Captured storefront JSON exports, extension queues, real page DOM or samples, and collected product images. These are local business data, not extension source or test fixtures.
+- `.midoo-runtime/`, generated `Launch-Desktop.vbs`, and `.ecommerce-product-manager-install.json`. Installers generate machine-local launch paths after installation; publish their generator source, never a launcher copied from a working machine.
 
 ## Source and binary distribution / 源码与程序分发
 

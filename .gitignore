@@ -18,6 +18,9 @@ desktop-config.json
 **/desktop-webview/
 **/browser-price-profiles/
 **/browser-store-profiles/
+**/.midoo-runtime/
+Launch-Desktop.vbs
+.ecommerce-product-manager-install.json
 *.db
 *.db-shm
 *.db-wal

@@ -1,16 +1,25 @@
 """Authenticated local browser jobs and server-owned import previews."""
 from __future__ import annotations
 
-from fastapi import APIRouter, Body, Depends, HTTPException, Request, Response
+from fastapi import APIRouter, Body, Depends, File, HTTPException, Request, Response, UploadFile
 
 import backend
 import browser_price_engine
 import browser_price_routes
 import store_import_engine as engine
 import store_import_storage as storage
+import page_capture_import
 import permissions
+import page_capture_package
 
 router = APIRouter(prefix='/api/store-import', dependencies=[Depends(backend.require_user)])
+
+
+@router.get('/page-extension.zip')
+def page_extension(request: Request):
+    _permission(request)
+    _owner(request)
+    return page_capture_package.extension_response()
 
 
 def _owner(request):
@@ -23,6 +32,12 @@ def _permission(request):
     user = backend._user(request)
     permissions.require(user, 'products.import')
     return user
+
+
+@router.post('/page-file')
+def page_file(request: Request, file: UploadFile = File(...)):
+    user = _permission(request)
+    return page_capture_import.upload_preview(_owner(request), user, file)
 
 
 @router.get('/capabilities')

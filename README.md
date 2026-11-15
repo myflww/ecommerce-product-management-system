@@ -1,18 +1,19 @@
 # 电商产品管理系统
 
+
 **E-commerce Product Management System · Midoo**
 
 [English](README.en.md) · [中文使用手册](docs/USER_GUIDE.zh-CN.md) · [English user guide](docs/USER_GUIDE.en.md) · [许可证](LICENSE)
 
 Windows 桌面商品工作台：将商品图片、平台档案、SKC / SKU、人工上下架状态和价格记录保存在本机，供同一局域网内的授权成员协作。桌面版使用独立窗口，安装后可从桌面和开始菜单打开。
 
-**版本：1.7.0 · Windows 10 / 11 64 位。** 软件界面目前以中文为主；本仓库提供完整中英文说明，英文文档不代表界面已全部英文化。
+**版本：1.8.0 · Windows 10 / 11 64 位。** 软件界面目前以中文为主；本仓库提供完整中英文说明，英文文档不代表界面已全部英文化。
 
 > 本项目公开源码，采用 **PolyForm Noncommercial License 1.0.0**，限制第三方商业使用。它属于 source-available（源码可见）项目，不属于 OSI 定义下允许商业用途的开源软件。商业用途须另行取得权利人授权，具体以 [LICENSE](LICENSE) 为准。第三方依赖和模型分别保留各自许可证。
 
 ## 下载与开始使用
 
-从 [Releases](https://github.com/myflww/ecommerce-product-management-system/releases) 下载 `EcommerceProductManager-Setup-1.7.0.exe`。
+从 [Releases](https://github.com/myflww/ecommerce-product-management-system/releases) 下载 `EcommerceProductManager-Setup-1.8.0.exe`。
 
 1. 双击 Setup 安装程序，按窗口提示安装到当前用户的 `%LOCALAPPDATA%\Programs\EcommerceProductManager`。无需管理员权限或 PowerShell 执行策略调整，会创建名为「电商产品管理系统」的桌面与开始菜单快捷方式。
 2. 打开快捷方式。桌面窗口使用 Microsoft Edge WebView2；缺少运行环境时，会提示并退回兼容的服务管理器，由浏览器打开工作台。
@@ -20,17 +21,21 @@ Windows 桌面商品工作台：将商品图片、平台档案、SKC / SKU、人
 4. 在「批量入库」导入图片或商品文件夹，再通过「编辑」补充分类、平台和 SKU。
 5. 在「以图查重」放入准备上新的图片，核对库内疑似同款。
 
-也可下载 `EcommerceProductManager-1.7.0-Windows.zip`，完整解压后直接运行 `Midoo.exe`，或在允许脚本的环境中使用 `Install-Desktop.cmd`。打包版无需 Python。WebView2 桌面窗口与浏览器辅助采价是两项不同能力：后者另需主机安装官方 Microsoft Edge 或 Google Chrome。
+也可下载 `EcommerceProductManager-1.8.0-Windows.zip`，完整解压后直接运行 `Midoo.exe`，或在允许脚本的环境中使用 `Install-Desktop.cmd`。打包版无需 Python。WebView2 桌面窗口与浏览器辅助采价是两项不同能力：后者另需主机安装官方 Microsoft Edge 或 Google Chrome。
 
 已有库升级时，先备份并正常关闭自有服务，保留原 `data` 文件夹。需要让新安装指向其他位置的现有库，可运行：
 
 ```powershell
-.\EcommerceProductManager-Setup-1.7.0.exe --install --data-dir "D:\Midoo\data"
+.\EcommerceProductManager-Setup-1.8.0.exe --install --data-dir "D:\Midoo\data"
 ```
 
 `desktop-config.json` 是安装时生成的本机配置，不属于公开发布内容。程序不会自动扫描私人目录寻找旧库。不要用新建空库覆盖旧库；也可用 `Midoo.exe --data-dir "D:\Midoo\data"` 显式启动原库，环境变量 `MIDOO_DATA_DIR` 优先级最高。详细步骤见[安装、升级和卸载](docs/USER_GUIDE.zh-CN.md#安装升级和卸载)。
 
-卸载时，正常关闭已安装程序，再从开始菜单选择 Uninstall，或双击安装目录中的 `Uninstall.exe`。原生卸载窗口移除应用与快捷方式，保留商品资料；`Uninstall-Desktop.cmd` 仅作为脚本环境下的备用方式。
+1.8 安装器会生成 `Launch-Desktop.vbs`，通过显式 Windows Script Host 启动桌面快捷方式、安装后首启和开始菜单卸载入口。它仅为本次软件启动设置进程环境，将 `TEMP` / `TMP` 指向专属运行目录，不改父进程、用户或系统环境变量。运行目录默认是最终所选 `data` 的父目录下的 `.midoo-runtime`；升级保留安装标记中已有的运行目录，也可用 Setup 的 `--runtime-dir` 或 PowerShell 备用安装器的 `-RuntimeDir` 指定。卸载保留商品资料与运行目录。
+
+这有助于资料位于其他盘、C 盘空间不足时从安装快捷方式运行。**Setup 自身、直接运行 `Midoo.exe` 或直接运行 `Uninstall.exe` 仍是 PyInstaller 单文件入口，首次解压仍需要继承临时目录所在盘的可用空间；不能解决所有 C 盘已满的情况。** 组织禁用 Windows Script Host 时，应联系管理员或使用已有获允许入口。参数示例见[使用手册](docs/USER_GUIDE.zh-CN.md#运行目录与临时盘空间)。
+
+卸载时，正常关闭已安装程序，优先从开始菜单选择 Uninstall，以使用安装时配置的运行目录；也可直接双击安装目录中的 `Uninstall.exe`，但需留意上述临时盘空间要求。原生卸载窗口移除应用与快捷方式，保留商品资料；`Uninstall-Desktop.cmd` 仅作为脚本环境下的备用方式。
 
 ## 能做什么
 
@@ -46,7 +51,7 @@ Windows 桌面商品工作台：将商品图片、平台档案、SKC / SKU、人
 | 可选 AI 与知识 | 商品命名、图片复核、图片 / 文档聊天、持久公司知识、商品图片卡片、官方思考选项及显式联网搜索 |
 | 企业知识与星云 | 当前商品与文档统一检索、商品关联、不可变版本、真实关系星云，无自然衰退 |
 | 公司公告 | Word 式图文附件、草稿 / 发布分离、当前公开版本及逐版本已读 |
-| 店铺与合并 | 同条平台档案筛店铺 / 状态、持久合并与受冲突保护的撤销、实验性 Temu 导入 |
+| 店铺与合并 | 同条平台档案筛店铺 / 状态、持久合并与受冲突保护的撤销、Temu 当前页扩展离线导入与专用浏览器试用 |
 | 团队与恢复 | 唯一老板、管理员 / 员工、逐人授权、动态、回收站和按权限导出备份 |
 
 ### 三个需要先了解的边界
@@ -79,7 +84,7 @@ Windows 密钥在服务端使用当前系统账号的 DPAPI 加密，不回显�
 
 可选联网需要具备模型配置权限的成员开启并配置可用的官方 DeepSeek 搜索服务。用户每次明确勾选联网，并单独填写公开搜索关键词；内部资料和历史不会被自动拼成搜索词。联网结果会交给当前聊天模型作答并列出来源，一次联网问答占用两次请求额度，可能另计搜索费用。不要在公开关键词中填写机密，搜索失败或无结果不代表取得了实时事实。
 
-## 1.7 的账号、公告与企业知识
+## 账号、公告与企业知识
 
 每个工作区只有一位「老板」。空库首位账号直接成为老板；旧库按创建时间、同时间按内部 ID 确定首位旧用户，保留原账号和密码。老板在「设置与备份 → 团队账号」逐人设置角色、停用状态及商品、知识、公告、AI、备份等权限。成员管理和永久清理商品 / 企业知识保留为老板专属，不能转授；本版本不提供老板转移。服务端按当前身份校验权限，停用账号立即注销现有会话。
 
@@ -97,9 +102,19 @@ Windows 密钥在服务端使用当前系统账号的 DPAPI 加密，不回显�
 
 选中 2–50 款已入库商品，点击「合并同款」，选择主商品并预览后确认。保留主商品名称、负责人、分类、规格、备注，原图片、平台 / 店铺 / SKU、人工状态、来源与价格历史转入主商品，不自动合并相似 SKU。源商品进入回收站，原资料和归属保存在持久合并记录中，重启后仍可从「最近合并」查阅。撤销需要合并、编辑和源商品恢复权限；有关联知识时还需对应知识编辑权限，并追加知识版本。商品、SKU、报价、来源或知识版本 / 关联出现后续变化时，直接撤销会停止，避免覆盖新工作。活动合并中的主 / 源商品不能永久清理，源商品不能绕过合并记录单独恢复。合并后最多 30 张图片、100 条平台档案。
 
-「批量入库 → 从店铺前端导入 · 试用」是 **Temu 专用实验功能**。它使用主机上的专用可见浏览器，操作者正常登录并主动读取，预览后可新建、并入或跳过，每批最多 20 款。只处理有本店归属证据的公开页面内容；推荐、广告、统一起价或插件价格不作为本店全规格报价。公开商品 / 变体编号与商家 SKC / SKU 分开保留；缺项明确提示，重复来源不覆盖人工原价、现价、资料或人工状态。入口需导入权限，新建另需创建权限，并入另需目标编辑权限。
+### 当前页面采集扩展
 
-**真实 Temu 专用浏览器登录存在回跳，尚未完成成功登录后的主图与全部变体采集实测。不能称已抓全店、已抓全变体或保证导入成功。** 若反复登录回跳，关闭采集窗口并继续使用现有图片批量入库，无需反复注册。普通多平台 SKU、手填价格与原有浏览器辅助流程保留。导入的 `browser-store-profiles`、预览、采样和图片留在本机，不上传 GitHub，也不随普通备份或公开发行包携带。技术参考：[STORE_IMPORT.md](STORE_IMPORT.md)。
+1.8 增加 Edge / Chrome 本地扩展，供用户在平时已登录且能正常查看的 **Temu** 页面手动采集。由用户自行加载扩展：当前页读取 → 核对并确认所属店铺 → 本地队列 → 导出离线 JSON → 软件导入预览 → 选择新建或并入已有商品 → 确认入库。读取、加入队列或导出都不会直接改变商品库；它也不修复专用浏览器的登录回跳。
+
+扩展只请求 `activeTab`、`scripting`、`storage`，不读取 Cookie、密码或账号资料，不连接本地 API，不后台翻页或扫描全店 / 全 SKU。队列保存在扩展本地存储，导出文件留在本机。每批最多 20 页、20 款商品，JSON 最大 8 MiB；店铺页仅提供当前已加载的商品概览，详情页也不保证暴露全部规格和独立报价。缺失字段留待补充，不把某一规格的价格复制到其他规格。软件导入时另行下载并校验主图，预览失败不能当作入库成功。
+
+真实 Temu 全 SKU 与独立报价仍未完成验收，离线合成页面测试不能称为真实采集成功。手动安装、隐私与核对步骤见[使用手册](docs/USER_GUIDE.zh-CN.md#当前页面采集扩展)及 [PAGE_CAPTURE_EXTENSION.md](PAGE_CAPTURE_EXTENSION.md)。
+
+### 专用浏览器试用
+
+商品导入界面保留的专用浏览器采集是 **Temu 专用实验功能**。它使用主机上的专用可见浏览器，操作者正常登录并主动读取，预览后可新建、并入或跳过，每批最多 20 款。只处理有本店归属证据的公开页面内容；推荐、广告、统一起价或插件价格不作为本店全规格报价。公开商品 / 变体编号与商家 SKC / SKU 分开保留；缺项明确提示，重复来源不覆盖人工原价、现价、资料或人工状态。入口需导入权限，新建另需创建权限，并入另需目标编辑权限。
+
+**真实 Temu 专用浏览器登录存在回跳，尚未完成成功登录后的主图与全部变体采集实测。不能称已抓全店、已抓全变体或保证导入成功。** 若反复登录回跳，关闭采集窗口，可在日常浏览器能正常查看商品时使用当前页扩展，或继续图片批量入库，无需反复注册。普通多平台 SKU、手填价格与原有浏览器辅助流程保留。导入的 `browser-store-profiles`、预览、采样和图片留在本机，不上传 GitHub，也不随普通备份或公开发行包携带。技术参考：[STORE_IMPORT.md](STORE_IMPORT.md)。
 
 ## 局域网协作与数据
 
@@ -107,7 +122,7 @@ Windows 密钥在服务端使用当前系统账号的 DPAPI 加密，不回显�
 
 默认数据目录是 `Midoo.exe` 旁的 `data`，也可由本机配置或 `MIDOO_DATA_DIR` 指定；以「设置与备份 → 局域网与备份」显示的位置为准。软件不自动开放防火墙或公网端口，不应直接暴露到互联网。
 
-具备 `data.backup` 权限的成员可导出完整备份；普通管理员默认没有该权限。备份包含商品、图片、账号与授权、公告正文 / 图片 / 附件 / 已读、知识文档 / 版本 / 关联及合并记录，也可能包含加密 AI 配置，应按私密资料保管。服务运行期间每天尝试创建一次本地自动备份，保留最近 7 份自动备份；同一硬盘备份不能替代异地副本。跨电脑或 Windows 账号迁移后通常需要重新填写 AI 密钥。不要把 `data`、数据库、公司知识、公告图片 / 附件、备份、`browser-store-profiles` 或其他登录 profile、密码、API 配置、任何原入库图片、店铺采样或 QA 图片提交到 GitHub。公开源码和发行包均不携带这些资料。
+具备 `data.backup` 权限的成员可导出完整备份；普通管理员默认没有该权限。备份包含商品、图片、账号与授权、公告正文 / 图片 / 附件 / 已读、知识文档 / 版本 / 关联及合并记录，也可能包含加密 AI 配置，应按私密资料保管。服务运行期间每天尝试创建一次本地自动备份，保留最近 7 份自动备份；同一硬盘备份不能替代异地副本。跨电脑或 Windows 账号迁移后通常需要重新填写 AI 密钥。不要把 `data`、数据库、公司知识、公告图片 / 附件、备份、`browser-store-profiles` 或其他登录 profile、密码、API 配置、任何原入库图片、店铺采样、真实网页 DOM、导出的采集 JSON 或 QA 图片提交到 GitHub。Cookie 与其他账号资料也不公开。公开源码和发行包均不携带这些资料。
 
 ## 从源码运行
 
@@ -139,7 +154,7 @@ Get-ChildItem tests\*_ui_smoke.cjs | ForEach-Object { node $_.FullName }
 powershell -NoProfile -File .\tools\build_windows.ps1
 ```
 
-构建脚本核对模型 SHA256，并通过 `Midoo.spec` 生成 `dist/windows/Midoo.exe`。1.7.0 发行资产计划整理至 `dist/release/1.7.0/`，包含版本化 Setup、Windows ZIP、模型 ZIP 和校验文件，最终以发行资产清单为准。此计划不表示已经构建或发布。`ENTERPRISE_KNOWLEDGE.md` 与 `STORE_IMPORT.md` 将随包携带。Node.js 用于前端检查，不是打包版的运行前提。发布前应对最终 EXE 做隔离库验证；常规测试使用临时库、合成页面和模拟 AI，不证明所有真实平台或账号都可正常采价，也不代表已做付费 API 联调。
+构建脚本核对模型 SHA256，并通过 `Midoo.spec` 生成 `dist/windows/Midoo.exe`。1.8.0 发行资产计划整理至 `dist/release/1.8.0/`，包含版本化 Setup、Windows ZIP、模型 ZIP 和校验文件，最终以发行资产清单为准。此计划不表示已经构建或发布。`ENTERPRISE_KNOWLEDGE.md`、`STORE_IMPORT.md` 与 `PAGE_CAPTURE_EXTENSION.md` 将随包携带。Node.js 用于前端检查，不是打包版的运行前提。发布前应对最终 EXE 做隔离库验证；常规测试使用临时库、合成页面和模拟 AI，不证明所有真实平台或账号都可正常采价，也不代表已做付费 API 联调。
 
 ## 仓库与问题反馈
 
@@ -151,7 +166,8 @@ powershell -NoProfile -File .\tools\build_windows.ps1
 - `permissions.py` / `announcements.py`：唯一老板、逐人能力授权和图文公告。
 - `knowledge_store.py` / `knowledge_graph.py` / `chat_memory.py` / `web_grounding.py`：企业知识、不可变版本、真实关系星云、会话引用与显式公开搜索。
 - `product_merge.py` / `store_import_*`：持久商品合并与实验性 Temu 店铺导入。
-- `ENTERPRISE_KNOWLEDGE.md` / `STORE_IMPORT.md`：随包的中文技术参考，主要操作另见双语手册。
+- `browser-extension/` / `page_capture_import.py` / `page_capture_package.py`：当前页扩展、离线采集文件校验与固定文件下载包。
+- `ENTERPRISE_KNOWLEDGE.md` / `STORE_IMPORT.md` / `PAGE_CAPTURE_EXTENSION.md`：随包的中文技术参考，主要操作另见双语手册。
 - `models/`：本地检索模型说明与第三方许可。
 - `tools/`：当前用户安装与卸载脚本。
 - `docs/` / `tests/`：中英文手册与验证用例。

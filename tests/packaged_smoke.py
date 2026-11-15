@@ -1,4 +1,4 @@
-"""Manual 1.7 executable smoke; copy this file to tests/ before running.
+"""Manual 1.8 executable smoke; copy this file to tests/ before running.
 
 Only a newly named qa-data library and port 8767 are used. Cloud AI is a local
 stub; web search stays disabled; FX comes from synthetic SQLite cache rows.
@@ -6,6 +6,7 @@ The packaged visual model uses bundled local weights without downloading them.
 Store collection is tested only at capability/auth/session/rejection boundaries:
 this does not claim a successful real storefront login or collection run.
 """
+import hashlib
 import io
 import json
 import os
@@ -27,7 +28,7 @@ import httpx
 
 BASE_URL = "http://127.0.0.1:8767"
 PASSWORD = "packaged-test-only"
-EXPECTED_VERSION = "1.7.0"
+EXPECTED_VERSION = "1.8.0"
 
 
 def result(response):
@@ -282,9 +283,39 @@ def verify_merge_and_graph(owner, employee, product_id, document_id, original_co
                       json={'expected_token': journal['undo_token']}).status_code == 409
 
 
+def verify_page_capture_boundaries(owner, employee, worker, data):
+    # Only local resource reads and early validation denials: no merchant fetch.
+    base = '/api/store-import'
+    expected = {'manifest.json', 'popup.html', 'popup.css', 'popup.js',
+                'capture-core.js', 'collector.js', 'README.md', 'icon.svg'}
+    before = business_snapshot(data)
+    response = owner.get(base + '/page-extension.zip')
+    response.raise_for_status()
+    assert response.headers['content-type'].startswith('application/zip')
+    assert response.headers['cache-control'] == 'no-store'
+    with zipfile.ZipFile(io.BytesIO(response.content)) as archive:
+        assert set(archive.namelist()) == {'Midoo-Page-Capture/' + name for name in expected}
+        resources = Path(__file__).resolve().parents[1] / 'browser-extension'
+        for name in expected:
+            assert hashlib.sha256(archive.read('Midoo-Page-Capture/' + name)).digest() == hashlib.sha256((resources / name).read_bytes()).digest()
+    for raw in (b'{}', b'{"format":"midoo-page-capture","version":1,"pages":[],"cookie":"synthetic-private-field"}'):
+        assert owner.post(base + '/page-file', files={'file': ('capture.json', raw, 'application/json')}).status_code == 400
+    with httpx.Client(base_url=BASE_URL, trust_env=False, timeout=20) as anonymous:
+        assert anonymous.get(base + '/page-extension.zip').status_code == 401
+        assert anonymous.post(base + '/page-file', files={'file': ('capture.json', b'{}', 'application/json')}).status_code == 401
+    assert business_snapshot(data) == before, 'Extension reads and invalid captures must not write business data'
+    result(member_update(owner, worker['id'], permissions={'products.import': False}))
+    before_denied = business_snapshot(data)
+    assert employee.get(base + '/page-extension.zip').status_code == 403
+    assert employee.post(base + '/page-file', files={'file': ('capture.json', b'{}', 'application/json')}).status_code == 403
+    assert business_snapshot(data) == before_denied
+    result(member_update(owner, worker['id'], permissions={}))
+
+
 def verify_store_boundaries(owner, employee, worker, data):
     # Never call an authorized browser/start or manufacture a collector preview.
     # Successful Temu login/collection is explicitly outside this smoke's claim.
+    verify_page_capture_boundaries(owner, employee, worker, data)
     base = '/api/store-import'
     unknown = '0' * 32
     selection = {'selections': [{'item_id': 'synthetic-uncollected-item', 'action': 'new'}], 'mark_listed': True}
@@ -324,7 +355,9 @@ def main():
     executable = Path(os.environ.get("MIDOO_SMOKE_EXE", str(root / "dist" / "windows" / "Midoo.exe"))).resolve(strict=True)
     data = root / "qa-data" / ("packaged-" + str(time.time_ns()))
     data.mkdir(parents=True, exist_ok=False)
-    env = dict(os.environ, MIDOO_DATA_DIR=str(data), MIDOO_HOST='127.0.0.1', MIDOO_PORT='8767',
+    runtime = root / 'qa-data' / '.midoo-runtime' / data.name
+    runtime.mkdir(parents=True, exist_ok=False)
+    env = dict(os.environ, TEMP=str(runtime), TMP=str(runtime), MIDOO_DATA_DIR=str(data), MIDOO_HOST='127.0.0.1', MIDOO_PORT='8767',
                HF_HUB_OFFLINE='1', TRANSFORMERS_OFFLINE='1')
     # Fail before launching or making HTTP requests if the dedicated QA port is busy.
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
@@ -600,7 +633,7 @@ def main():
                     assert connection.execute('SELECT content FROM knowledge_document_versions WHERE document_id=? AND revision=?',
                         (document_id, document_initial_revision)).fetchone()[0] == document_initial_content
                     assert {row[0] for row in connection.execute('SELECT action FROM knowledge_document_versions WHERE document_id=?', (document_id,))} >= {'product_merge', 'product_merge_undo'}
-            print("PACKAGED_SMOKE_OK: 1.7 isolated startup/driver; sole owner, per-member capabilities, administrator/employee denials and live revocation; sanitized announcements, public/draft separation, image/file SQLite BLOBs and archive/restore; FTS knowledge CRUD/import/revisions/manual links/graph/backup; merge+undo preserves media/SKU/history IDs, quotes, tokens and knowledge links; local AI stub, company evidence/cards, general isolation, disabled web search, effort/attachments/follow-up; cached FX and local visual model; categories/recovery/SKU/manual-only prices; store capability/auth/session/missing-draft rejection leaves catalog unchanged; ZIP excludes price/store/webview profiles. No real search, FX, cloud or marketplace requests; real store login/collection remains experimental and is not validated by this smoke.")
+            print("PACKAGED_SMOKE_OK: 1.8 isolated startup/driver; sole owner, per-member capabilities, administrator/employee denials and live revocation; sanitized announcements, public/draft separation, image/file SQLite BLOBs and archive/restore; FTS knowledge CRUD/import/revisions/manual links/graph/backup; merge+undo preserves media/SKU/history IDs, quotes, tokens and knowledge links; local AI stub, company evidence/cards, general isolation, disabled web search, effort/attachments/follow-up; cached FX and local visual model; categories/recovery/SKU/manual-only prices; embedded extension ZIP exact eight files/bytes, invalid private capture/auth/revocation rejection leaves catalog unchanged; store capability/auth/session/missing-draft rejection leaves catalog unchanged; ZIP excludes price/store/webview profiles. No real search, FX, cloud or marketplace requests; real store login/collection remains experimental and is not validated by this smoke.")
     finally:
         stub.shutdown()
         stub.server_close()
